@@ -1,5 +1,5 @@
 /* Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
- * de Barcelona (UAB), and the INTEL Visual Computing Lab.
+ * de Barcelona (UAB).
  *
  * This work is licensed under the terms of the MIT license.
  * For a copy, see <https://opensource.org/licenses/MIT>.
@@ -28,17 +28,29 @@ extern "C" {
     float z;
   };
 
-  struct carla_image {
-    uint32_t width;
-    uint32_t height;
-    uint32_t type;
-    const uint32_t *data;
+  struct carla_rotation3d {
+    float pitch;
+    float yaw;
+    float roll;
   };
 
   struct carla_transform {
+    /** Location in meters. */
     struct carla_vector3d location;
+    /** Unit vector pointing "forward". */
     struct carla_vector3d orientation;
+    /** Rotation angles in degrees. */
+    struct carla_rotation3d rotation;
   };
+
+  struct carla_bounding_box {
+    struct carla_transform transform;
+    struct carla_vector3d extent;
+  };
+
+  /* ======================================================================== */
+  /* -- agents -------------------------------------------------------------- */
+  /* ======================================================================== */
 
 #define CARLA_SERVER_AGENT_UNKNOWN            0u
 #define CARLA_SERVER_AGENT_VEHICLE           10u
@@ -59,8 +71,33 @@ extern "C" {
     uint32_t id;
     uint32_t type;
     struct carla_transform transform;
-    struct carla_vector3d box_extent;
+    struct carla_bounding_box bounding_box;
     float forward_speed;
+  };
+
+  /* ======================================================================== */
+  /* -- sensors ------------------------------------------------------------- */
+  /* ======================================================================== */
+
+#define CARLA_SERVER_SENSOR_UNKNOWN                  0u
+#define CARLA_SERVER_CAMERA                        101u
+#define CARLA_SERVER_LIDAR_RAY_CAST                102u
+
+  struct carla_sensor_definition {
+    /** Id of the sensor. */
+    uint32_t id;
+    /** Type of the sensor (one of the above defines). */
+    uint32_t type;
+    /** Display name of the sensor. */
+    const char *name;
+  };
+
+  struct carla_sensor_data {
+    uint32_t id;
+    const void *header;
+    uint32_t header_size;
+    const void *data;
+    uint32_t data_size;
   };
 
   /* ======================================================================== */
@@ -84,9 +121,14 @@ extern "C" {
   /* ======================================================================== */
 
   struct carla_scene_description {
+    /** Display name of the current map. */
+    const char *map_name;
     /** Collection of the initial player start locations. */
     const struct carla_transform *player_start_spots;
     uint32_t number_of_player_start_spots;
+    /** Definitions of the sensors present in the scene. */
+    const struct carla_sensor_definition *sensors;
+    uint32_t number_of_sensors;
   };
 
   /* ======================================================================== */
@@ -124,9 +166,11 @@ extern "C" {
   struct carla_player_measurements {
     /** World transform of the player. */
     struct carla_transform transform;
+    /** Bounding box of the player. */
+    struct carla_bounding_box bounding_box;
     /** Current acceleration of the player. */
     struct carla_vector3d acceleration;
-    /** Forward speed in km/h. */
+    /** Forward speed in m/s. */
     float forward_speed;
     /** Collision intensity with other vehicles. */
     float collision_vehicles;
@@ -139,7 +183,7 @@ extern "C" {
     /** Percentage of the car off-road. */
     float intersection_offroad;
     /** Vehicle's AI control that would apply this frame. */
-    struct carla_control ai_control;
+    struct carla_control autopilot_control;
   };
 
   /* ======================================================================== */
@@ -147,6 +191,8 @@ extern "C" {
   /* ======================================================================== */
 
   struct carla_measurements {
+    /** Frame counter. */
+    uint32_t frame_number;
     /** Time-stamp of the current frame, in milliseconds as given by the OS. */
     uint32_t platform_timestamp;
     /** In-game time-stamp, milliseconds elapsed since the beginning of the current level. */
@@ -251,11 +297,17 @@ extern "C" {
     *   CARLA_SERVER_SUCCESS Value was posted for sending.
     *   CARLA_SERVER_OPERATION_ABORTED Agent server is missing.
     */
+  CARLA_SERVER_API int32_t carla_write_sensor_data(
+      CarlaServerPtr self,
+      const carla_sensor_data &data);
+
+  /** Return values:
+    *   CARLA_SERVER_SUCCESS Value was posted for sending.
+    *   CARLA_SERVER_OPERATION_ABORTED Agent server is missing.
+    */
   CARLA_SERVER_API int32_t carla_write_measurements(
       CarlaServerPtr self,
-      const carla_measurements &values,
-      const struct carla_image *images,
-      uint32_t number_of_images);
+      const carla_measurements &values);
 
 #ifdef __cplusplus
 }

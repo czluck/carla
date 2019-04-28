@@ -1,5 +1,5 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
@@ -11,20 +11,35 @@
 #include "RandomEngine.generated.h"
 
 UCLASS(Blueprintable,BlueprintType)
-class URandomEngine : public UObject
+class CARLA_API URandomEngine : public UObject
 {
   GENERATED_BODY()
 
 public:
 
   // ===========================================================================
-  /// @name Set and get seed
+  /// @name Generate Ids
   // ===========================================================================
   /// @{
 
+  /// Generate a non-deterministic random id.
+  static uint64 GenerateRandomId();
+
+  /// @}
+  // ===========================================================================
+  /// @name Seed
+  // ===========================================================================
+  /// @{
+
+  /// Generate a non-deterministic random seed.
   UFUNCTION(BlueprintCallable)
   static int32 GenerateRandomSeed();
 
+  /// Generate a seed derived from previous seed.
+  UFUNCTION(BlueprintCallable)
+  int32 GenerateSeed();
+
+  /// Seed the random engine.
   UFUNCTION(BlueprintCallable)
   void Seed(int32 InSeed)
   {

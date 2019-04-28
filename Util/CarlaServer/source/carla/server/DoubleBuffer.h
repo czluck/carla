@@ -1,5 +1,5 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
@@ -90,6 +90,10 @@ namespace detail {
       }
       const T *pointer = (active != NUMBER_OF_BUFFERS ? &_buffer[active] : nullptr);
       return std::unique_ptr<const T, decltype(deleter)>(pointer, deleter);
+    }
+
+    auto TryMakeReader() {
+      return TryMakeReader(timeout_t::milliseconds(0u));
     }
 
     /// Returns an unique_ptr to the buffer to be written. The given buffer

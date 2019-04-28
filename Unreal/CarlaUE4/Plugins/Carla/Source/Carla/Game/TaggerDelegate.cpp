@@ -1,5 +1,5 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
@@ -7,8 +7,9 @@
 #include "Carla.h"
 #include "TaggerDelegate.h"
 
+#include "Game/Tagger.h"
+
 #include "Engine/World.h"
-#include "Tagger.h"
 
 UTaggerDelegate::UTaggerDelegate() :
   ActorSpawnedDelegate(FOnActorSpawned::FDelegate::CreateUObject(this, &UTaggerDelegate::OnActorSpawned)) {}

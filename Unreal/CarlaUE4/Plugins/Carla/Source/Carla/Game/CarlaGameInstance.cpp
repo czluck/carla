@@ -1,5 +1,5 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
@@ -7,8 +7,8 @@
 #include "Carla.h"
 #include "CarlaGameInstance.h"
 
-#include "CarlaGameController.h"
-#include "MockGameController.h"
+#include "Game/MockGameController.h"
+#include "Server/ServerGameController.h"
 #include "Settings/CarlaSettings.h"
 
 UCarlaGameInstance::UCarlaGameInstance() {
@@ -18,16 +18,16 @@ UCarlaGameInstance::UCarlaGameInstance() {
   CarlaSettings->LogSettings();
 }
 
-UCarlaGameInstance::~UCarlaGameInstance() {}
+UCarlaGameInstance::~UCarlaGameInstance() = default;
 
 void UCarlaGameInstance::InitializeGameControllerIfNotPresent(
     const FMockGameControllerSettings &MockControllerSettings)
 {
   if (GameController == nullptr) {
     if (CarlaSettings->bUseNetworking) {
-      GameController = MakeUnique<CarlaGameController>();
+      GameController = MakeUnique<FServerGameController>(DataRouter);
     } else {
-      GameController = MakeUnique<MockGameController>(MockControllerSettings);
+      GameController = MakeUnique<MockGameController>(DataRouter, MockControllerSettings);
       UE_LOG(LogCarla, Log, TEXT("Using mock CARLA controller"));
     }
   }

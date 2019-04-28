@@ -1,11 +1,13 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
 
 #include "Carla.h"
 #include "CarlaPlayerState.h"
+
+#include "CoreGlobals.h"
 
 void ACarlaPlayerState::Reset()
 {
@@ -15,7 +17,6 @@ void ACarlaPlayerState::Reset()
   CollisionIntensityCars = 0.0f;
   CollisionIntensityPedestrians = 0.0f;
   CollisionIntensityOther = 0.0f;
-  Images.Empty();
 }
 
 void ACarlaPlayerState::CopyProperties(APlayerState *PlayerState)
@@ -26,7 +27,8 @@ void ACarlaPlayerState::CopyProperties(APlayerState *PlayerState)
     ACarlaPlayerState *Other = Cast<ACarlaPlayerState>(PlayerState);
     if (Other != nullptr)
     {
-      FramesPerSecond = Other->FramesPerSecond;
+      FrameNumber = Other->FrameNumber;
+      SimulationStepInSeconds = Other->SimulationStepInSeconds;
       PlatformTimeStamp = Other->PlatformTimeStamp;
       GameTimeStamp = Other->GameTimeStamp;
       Transform = Other->Transform;
@@ -44,7 +46,6 @@ void ACarlaPlayerState::CopyProperties(APlayerState *PlayerState)
       CollisionIntensityOther = Other->CollisionIntensityOther;
       OtherLaneIntersectionFactor = Other->OtherLaneIntersectionFactor;
       OffRoadIntersectionFactor = Other->OffRoadIntersectionFactor;
-      Images = Other->Images;
       UE_LOG(LogCarla, Log, TEXT("Copied properties of ACarlaPlayerState"));
     }
   }
@@ -76,7 +77,8 @@ static int32 RoundToMilliseconds(float Seconds)
 
 void ACarlaPlayerState::UpdateTimeStamp(float DeltaSeconds)
 {
-  FramesPerSecond = 1.0f / DeltaSeconds;
+  FrameNumber = GFrameCounter;
+  SimulationStepInSeconds = DeltaSeconds;
   PlatformTimeStamp = RoundToMilliseconds(FPlatformTime::Seconds());
   GameTimeStamp += RoundToMilliseconds(DeltaSeconds);
 }

@@ -1,5 +1,5 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
@@ -10,7 +10,10 @@
 #include "CityMapMeshTag.h"
 #include "CityMapMeshHolder.generated.h"
 
+class IDetailLayoutBuilder;
 class UInstancedStaticMeshComponent;
+class AStaticMeshActor;
+
 
 /// Holds the static meshes and instances necessary for building a city map.
 UCLASS(Abstract)
@@ -26,11 +29,12 @@ public:
   /// Initializes the mesh holders. It is safe to call SetStaticMesh after this.
   /// However, instances cannot be added until OnConstruction is called.
   ACityMapMeshHolder(const FObjectInitializer& ObjectInitializer);
-
+  //void LayoutDetails( IDetailLayoutBuilder& DetailLayout );
 protected:
 
   /// Initializes the instantiators.
   virtual void OnConstruction(const FTransform &Transform) override;
+  virtual void PostInitializeComponents() override;
 
 #if WITH_EDITOR
   /// Clears and updates the instantiators.
@@ -44,6 +48,7 @@ protected:
 
   float GetMapScale() const
   {
+	  
     return MapScale;
   }
 
@@ -89,20 +94,20 @@ private:
   /// Here does nothing, implement in derived classes.
   virtual void UpdateMap();
 
-  /// Clear all instances in the instantiators and update the static meshes.
-  void ResetInstantiators();
+  /// Clear all instances of the static mesh actors.
+  void DeletePieces();
 
   /// Set the scale to the dimensions of the base mesh.
   void UpdateMapScale();
 
-  /// Creates a new one if necessary.
-  UInstancedStaticMeshComponent &GetInstantiator(ECityMapMeshTag Tag);
+ private:
+
 
   UPROPERTY()
   USceneComponent *SceneRootComponent;
 
   UPROPERTY(Category = "Map Generation", VisibleAnywhere)
-  float MapScale;
+  float MapScale = 1.0f;
 
   UPROPERTY(Category = "Meshes", EditAnywhere)
   TMap<ECityMapMeshTag, UStaticMesh *> StaticMeshes;
@@ -110,6 +115,5 @@ private:
   UPROPERTY()
   TMap<UStaticMesh *, ECityMapMeshTag> TagMap;
 
-  UPROPERTY(Category = "Meshes", VisibleAnywhere)
-  TArray<UInstancedStaticMeshComponent *> MeshInstatiators;
+
 };

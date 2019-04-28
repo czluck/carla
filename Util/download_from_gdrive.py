@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma de
-# Barcelona (UAB), and the INTEL Visual Computing Lab.
+# Barcelona (UAB).
 #
 # This work is licensed under the terms of the MIT license.
 # For a copy, see <https://opensource.org/licenses/MIT>.
@@ -14,9 +14,10 @@ import sys
 
 import requests
 
+
 def sizeof_fmt(num, suffix='B'):
     # https://stackoverflow.com/a/1094933/5308925
-    for unit in ['','K','M','G','T','P','E','Z']:
+    for unit in ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z']:
         if abs(num) < 1000.0:
             return "%3.2f%s%s" % (num, unit, suffix)
         num /= 1000.0
@@ -39,7 +40,7 @@ def download_file_from_google_drive(id, destination):
 
         with open(destination, "wb") as f:
             for chunk in response.iter_content(chunk_size):
-                if chunk: # filter out keep-alive new chunks
+                if chunk:  # filter out keep-alive new chunks
                     f.write(chunk)
                     written_size += chunk_size
                     print_status(destination, written_size)

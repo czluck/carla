@@ -1,5 +1,5 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
@@ -8,10 +8,12 @@
 
 #include "carla/server/CarlaServerAPI.h"
 #include "carla/server/Protobuf.h"
-#include "carla/server/RequestNewEpisode.h"
 
 namespace carla {
 namespace server {
+
+  class CarlaSceneDescription;
+  class RequestNewEpisode;
 
   /// Converts the data between the C interface types and the Protobuf message
   /// that is going to be sent and received through the socket.
@@ -39,6 +41,8 @@ namespace server {
     /// @{
 
     std::string Encode(const carla_scene_description &values);
+
+    std::string Encode(const CarlaSceneDescription &values);
 
     std::string Encode(const carla_episode_ready &values);
 

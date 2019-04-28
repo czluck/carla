@@ -1,5 +1,5 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
@@ -17,7 +17,7 @@ ACarlaMapGenerator::ACarlaMapGenerator(const FObjectInitializer& ObjectInitializ
       SetStaticMesh(ECityMapMeshTag:: Tag, MeshObj.Object); \
     }
 
-#define PREFIX_FOLDER "/Game/Static/"
+#define PREFIX_FOLDER "/Game/Carla/Static/"
 
   SET_STATIC_MESH(RoadTwoLanes_LaneLeft,           PREFIX_FOLDER "Road",        "St_Road_TileRoad_RoadL");
   SET_STATIC_MESH(RoadTwoLanes_LaneRight,          PREFIX_FOLDER "Road",        "St_Road_TileRoad_RoadR");

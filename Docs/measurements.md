@@ -1,5 +1,9 @@
-Measurements
-============
+<h1>Measurements</h1>
+
+!!! important
+    Since version 0.8.0 the measurements received by the client are in SI
+    units. All locations have been converted to `meters` and speeds to
+    `meters/second`.
 
 Every frame the server sends a package with the measurements and images gathered
 to the client. This document describes the details of these measurements.
@@ -7,13 +11,13 @@ to the client. This document describes the details of these measurements.
 Time-stamps
 -----------
 
-Since CARLA can be run at fixed-frame rate, we keep track of two different
-time-stamps.
+Every frame is described by three different counters/time-stamps
 
-Key                        | Type      | Description
--------------------------- | --------- | ------------
-platform_timestamp         | uint32    | Time-stamp of the current frame, in milliseconds as given by the OS.
-game_timestamp             | uint32    | In-game time-stamp, milliseconds elapsed since the beginning of the current level.
+Key                        | Type      | Units        | Description
+-------------------------- | --------- | ------------ | ------------
+frame_number               | uint64    |              | Frame counter (it is **not** restarted on each episode).
+platform_timestamp         | uint32    | milliseconds | Time-stamp of the current frame, as given by the OS.
+game_timestamp             | uint32    | milliseconds | In-game time-stamp, elapsed since the beginning of the current episode.
 
 In real-time mode, the elapsed time between two time steps should be similar
 both platform and game time-stamps. When run in fixed-time step, the game
@@ -23,25 +27,39 @@ time-stamp keeps the actual time elapsed.
 Player measurements
 -------------------
 
-Key                        | Type      | Description
--------------------------- | --------- | ------------
-transform                  | Transform | World transform of the player.
-acceleration               | Vector3D  | Current acceleration of the player.
-forward_speed              | float     | Forward speed in km/h.
-collision_vehicles         | float     | Collision intensity with other vehicles.
-collision_pedestrians      | float     | Collision intensity with pedestrians.
-collision_other            | float     | General collision intensity (everything else but pedestrians and vehicles).
-intersection_otherlane     | float     | Percentage of the car invading other lanes.
-intersection_offroad       | float     | Percentage of the car off-road.
-ai_control                 | Control   | Vehicle's AI control that would apply this frame.
+Key                        | Type        | Units  | Description
+-------------------------- | ----------- | ------ | ------------
+transform                  | Transform   |        | World transform of the player (contains a locations and a rotation) respect the vehicle's mesh pivot.
+bounding_box               | BoundingBox |        | Bounding box of the player.
+acceleration               | Vector3D    | m/s^2  | Current acceleration of the player.
+forward_speed              | float       | m/s    | Forward speed of the player.
+collision_vehicles         | float       | kg*m/s | Collision intensity with other vehicles.
+collision_pedestrians      | float       | kg*m/s | Collision intensity with pedestrians.
+collision_other            | float       | kg*m/s | General collision intensity (everything else but pedestrians and vehicles).
+intersection_otherlane     | float       |        | Percentage of the vehicle invading other lanes.
+intersection_offroad       | float       |        | Percentage of the vehicle off-road.
+autopilot_control          | Control     |        | Vehicle's autopilot control that would apply this frame.
 
-###### Transform
+<h4>Transform</h4>
 
-The transform contains two Vector3D objects, location and orientation.
-Currently, the orientation is represented as the Cartesian coordinates X, Y, Z.
-_We will probably change this in the future to Roll, Pitch, and Yaw._
+The transform contains the location and rotation of the player.
 
-###### Collision
+Key                        | Type       | Units   | Description
+-------------------------- | ---------- | ------- | ------------
+location                   | Vector3D   | m       | World location.
+orientation *[deprecated]* | Vector3D   |         | Orientation in Cartesian coordinates.
+rotation                   | Rotation3D | degrees | Pitch, roll, and yaw.
+
+<h4>BoundingBox</h4>
+
+Contains the transform and extent of a bounding box.
+
+Key                        | Type       | Units   | Description
+-------------------------- | ---------- | ------- | ------------
+transform                  | Transform  |         | Transform of the bounding box relative to the vehicle.
+extent                     | Vector3D   | m       | Radii dimensions of the bounding box (half-box).
+
+<h4>Collision</h4>
 
 Collision variables keep an accumulation of all the collisions occurred during
 this episode. Every collision contributes proportionally to the intensity of the
@@ -56,7 +74,7 @@ objects are classified based on their tag (same as for semantic segmentation).
 Collisions are not annotated if the vehicle is not moving (<1km/h) to avoid
 annotating undesired collision due to mistakes in the AI of non-player agents.
 
-###### Lane/off-road intersection
+<h4>Lane/off-road intersection</h4>
 
 The lane intersection measures the percentage of the vehicle invading the
 opposite lane. The off-road intersection measures the percentage of the vehicle
@@ -67,10 +85,10 @@ rectangle) against the map image of the city. These images are generated in the
 editor and serialized for runtime use. You can find them too in the release
 package under the folder "RoadMaps".
 
-###### AI control
+<h4>Autopilot control</h4>
 
-The `ai_control` measurement contains the control values that the in-game AI
-would apply if it were controlling the vehicle.
+The `autopilot_control` measurement contains the control values that the in-game
+autopilot system would apply as if it were controlling the vehicle.
 
 This is the same structure used to send the vehicle control to the server.
 
@@ -82,12 +100,28 @@ brake                      | float     | Brake input between [ 0.0, 1.0]
 hand_brake                 | bool      | Whether the hand-brake is engaged
 reverse                    | bool      | Whether the vehicle is in reverse gear
 
+To activate the autopilot from the client, send this `autopilot_control` back
+to the server. Note that you can modify it before sending it back.
+
+```py
+measurements, sensor_data = carla_client.read_data()
+control = measurements.player_measurements.autopilot_control
+# modify here control if wanted.
+carla_client.send_control(control)
+```
+
 (*) The actual steering angle depends on the vehicle used. The default Mustang
 has a maximum steering angle of 70 degrees (this can be checked in the vehicle's
 front wheel blueprint).
 
+![Mustan Steering Angle](img/steering_angle_mustang.png)
+
 Non-player agents info
 ----------------------
+
+!!! important
+    Since version 0.8.0 the player vehicle is not sent in the list of non-player
+    agents.
 
 To receive info of every non-player agent in the scene every frame you need to
 activate this option in the settings file sent by the client at the beginning of
@@ -102,10 +136,68 @@ If enabled, the server attaches a list of agents to the measurements package
 every frame. Each of these agents has an unique id that identifies it, and
 belongs to one of the following classes
 
-  * **Vehicle** Contains its transform, bounding-box, and forward speed.
-  * **Pedestrian** Contains its transform, bounding-box, and forward speed. (*)
-  * **Traffic light** Contains its transform and state (green, yellow, red).
-  * **Speed-limit sign** Contains its transform and speed-limit.
+  * Vehicle
+  * Pedestrian
+  * Traffic ligth
+  * Speed limit sign
 
-(*) At this point every pedestrian is assumed to have the same bounding-box
-size.
+Each of them can be accessed in Python by checking if the agent object has the
+field enabled
+
+```python
+measurements, sensor_data = client.read_data()
+
+for agent in measurements.non_player_agents:
+    agent.id # unique id of the agent
+    if agent.HasField('vehicle'):
+        agent.vehicle.forward_speed
+        agent.vehicle.transform
+        agent.vehicle.bounding_box
+```
+
+<h6>Vehicle</h6>
+
+Key                             | Type      | Description
+------------------------------- | --------- | ------------
+id                              | uint32    | Agent ID
+vehicle.forward_speed           | float     | Forward speed of the vehicle in m/s, is the linear speed projected to the forward vector of the chassis of the vehicle
+vehicle.transform               | Transform | Agent-to-world transform
+vehicle.bounding_box.transform  | Transform | Transform of the bounding box relative to the vehicle
+vehicle.bounding_box.extent     | Vector3D  | Radii dimensions of the bounding box in meters
+
+<h6>Pedestrian</h6>
+
+Key                               | Type      | Description
+--------------------------------- | --------- | ------------
+id                                | uint32    | Agent ID
+pedestrian.forward_speed          | float     | Forward speed of the pedestrian in m/s
+pedestrian.transform              | Transform | Agent-to-world transform
+pedestrian.bounding_box.transform | Transform | Transform of the bounding box relative to the pedestrian
+pedestrian.bounding_box.extent    | Vector3D  | Radii dimensions of the bounding box in meters (*)
+
+<small>(*) At this point every pedestrian is assumed to have the same
+bounding-box size.</small>
+
+<h6>Traffic light</h6>
+
+Key                          | Type      | Description
+---------------------------- | --------- | ------------
+id                           | uint32    | Agent ID
+traffic_light.transform      | Transform | Agent-to-world transform
+traffic_light.state          | enum      | Traffic light state; `GREEN`, `YELLOW`, or `RED`
+
+<h6>Speed limit sign</h6>
+
+Key                          | Type      | Description
+---------------------------- | --------- | ------------
+id                           | uint32    | Agent ID
+speed_limit_sign.transform   | Transform | Agent-to-world transform
+speed_limit_sign.speed_limit | float     | Speed limit in m/s
+
+<h4>Transform and bounding box</h4>
+
+The transform defines the location and orientation of the agent. The transform
+of the bounding box is given relative to the vehicle. The box extent gives the
+radii dimensions of the bounding box of the agent.
+
+![Vehicle Bounding Box](img/vehicle_bounding_box.png)

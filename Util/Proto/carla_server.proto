@@ -1,5 +1,5 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
@@ -20,23 +20,52 @@ message Vector3D {
   float z = 3;
 }
 
+message Rotation3D {
+  float pitch = 1;
+  float yaw = 2;
+  float roll = 3;
+}
+
 message Transform {
   Vector3D location = 1;
-  // For now, orientation as the cartesian coordinates X, Y, Z. But we are
-  // probably better off using Roll, Pitch, Yaw in the future as it gives more
-  // info.
-  Vector3D orientation = 2;
+  Vector3D orientation = 2 [deprecated=true];
+  Rotation3D rotation = 3;
 }
+
+message BoundingBox {
+  Transform transform = 1;
+  Vector3D extent = 2;
+}
+
+// =============================================================================
+// -- Sensors ------------------------------------------------------------------
+// =============================================================================
+
+message Sensor {
+  enum Type {
+    UNKNOWN = 0;
+    CAMERA = 1;
+    LIDAR_RAY_CAST = 2;
+  }
+
+  fixed32 id = 1;
+  Type type = 2;
+  string name = 3;
+}
+
+// =============================================================================
+// -- Agents -------------------------------------------------------------------
+// =============================================================================
 
 message Vehicle {
   Transform transform = 1;
-  Vector3D box_extent = 2;
+  BoundingBox bounding_box = 4;
   float forward_speed = 3;
 }
 
 message Pedestrian {
   Transform transform = 1;
-  Vector3D box_extent = 2;
+  BoundingBox bounding_box = 4;
   float forward_speed = 3;
 }
 
@@ -74,7 +103,9 @@ message RequestNewEpisode {
 }
 
 message SceneDescription {
+  string map_name = 3;
   repeated Transform player_start_spots = 1;
+  repeated Sensor sensors = 2;
 }
 
 message EpisodeStart {
@@ -101,6 +132,8 @@ message Measurements {
   message PlayerMeasurements {
     Transform transform = 1;
 
+    BoundingBox bounding_box = 12;
+
     Vector3D acceleration = 3;
     float forward_speed = 4;
 
@@ -111,8 +144,10 @@ message Measurements {
     float intersection_otherlane = 8;
     float intersection_offroad = 9;
 
-    Control ai_control = 10;
+    Control autopilot_control = 10;
   }
+
+  uint64 frame_number = 5;
 
   uint32 platform_timestamp = 1;
 

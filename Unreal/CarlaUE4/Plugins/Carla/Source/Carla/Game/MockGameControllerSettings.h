@@ -1,5 +1,5 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
@@ -9,7 +9,7 @@
 #include "MockGameControllerSettings.generated.h"
 
 USTRUCT(BlueprintType)
-struct FMockGameControllerSettings
+struct CARLA_API FMockGameControllerSettings
 {
   GENERATED_USTRUCT_BODY()
 
@@ -27,10 +27,6 @@ struct FMockGameControllerSettings
   /** Index of the player start position. */
   UPROPERTY(EditAnywhere, Category = "Mock CARLA Controller", meta = (EditCondition = "!bRandomPlayerStart", ClampMin = 0))
   int32 PlayerStartIndex = 0;
-
-  /** If true, semantic segmentation will be always enabled even if no camera needs it. */
-  UPROPERTY(EditAnywhere, Category = "Mock CARLA Controller")
-  bool bForceEnableSemanticSegmentation = false;
 
 #if WITH_EDITORONLY_DATA
 

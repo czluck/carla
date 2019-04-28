@@ -1,5 +1,5 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
@@ -7,8 +7,13 @@
 #include "Carla.h"
 #include "MockGameController.h"
 
-MockGameController::MockGameController(const FMockGameControllerSettings &InSettings) :
-  Settings(InSettings) {}
+#include "Game/DataRouter.h"
+
+MockGameController::MockGameController(
+    FDataRouter &InDataRouter,
+    const FMockGameControllerSettings &InSettings)
+  : ICarlaGameControllerBase(InDataRouter),
+    Settings(InSettings) {}
 
 void MockGameController::Initialize(UCarlaSettings &CarlaSettings)
 {
@@ -25,12 +30,6 @@ void MockGameController::Initialize(UCarlaSettings &CarlaSettings)
     CarlaSettings.WeatherId = StaticIndex % CarlaSettings.WeatherDescriptions.Num();
     ++StaticIndex;
   }
-
-#if WITH_EDITOR
-  if (Settings.bForceEnableSemanticSegmentation) {
-    CarlaSettings.bSemanticSegmentationEnabled = true;
-  }
-#endif // WITH_EDITOR
 }
 
 APlayerStart *MockGameController::ChoosePlayerStart(

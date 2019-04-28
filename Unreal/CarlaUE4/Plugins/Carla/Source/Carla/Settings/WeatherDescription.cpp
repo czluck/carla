@@ -1,5 +1,5 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
@@ -18,7 +18,7 @@ static FString PrecipitationTypeToString(EPrecipitationType PrecipitationType)
 }
 
 static void LoadPrecipitationType(
-    const IniFile &ConfigFile,
+    const FIniFile &ConfigFile,
     const TCHAR* Section,
     const TCHAR* Key,
     EPrecipitationType &Target)
@@ -44,7 +44,7 @@ static FString AutoExposureMethodToString(EAutoExposureMethod AutoExposureMethod
 }
 
 static void LoadAutoExposureMethod(
-    const IniFile &ConfigFile,
+    const FIniFile &ConfigFile,
     const TCHAR* Section,
     const TCHAR* Key,
     EAutoExposureMethod &Target)
@@ -59,7 +59,7 @@ static void LoadAutoExposureMethod(
   }
 }
 
-void FWeatherDescription::ReadFromConfigFile(const IniFile &ConfigFile, const FString &Section)
+void FWeatherDescription::ReadFromConfigFile(const FIniFile &ConfigFile, const FString &Section)
 {
   Name = Section;
 #define CARLA_LOAD_FROM_INI(Type, Key) ConfigFile.Get ## Type(*Section, TEXT(#Key), Key);
@@ -103,7 +103,7 @@ void FWeatherDescription::ReadFromConfigFile(const IniFile &ConfigFile, const FS
 #undef CARLA_LOAD_FROM_INI
 }
 
-void FWeatherDescription::WriteToConfigFile(IniFile &ConfigFile) const
+void FWeatherDescription::WriteToConfigFile(FIniFile &ConfigFile) const
 {
   const FString &Section = Name;
   ConfigFile.AddSectionIfMissing(Section);

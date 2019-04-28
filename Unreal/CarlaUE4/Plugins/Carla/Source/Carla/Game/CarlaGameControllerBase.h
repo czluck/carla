@@ -1,23 +1,26 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
 
 #pragma once
 
-#include "Array.h"
+#include "Containers/Array.h"
 
 class AController;
 class APlayerStart;
+class FDataRouter;
 class UCarlaSettings;
 
 /// Base class for a CARLA game controller.
-class CARLA_API CarlaGameControllerBase
+class ICarlaGameControllerBase
 {
 public:
 
-  virtual ~CarlaGameControllerBase() {}
+  ICarlaGameControllerBase(FDataRouter &DataRouter) : DataRouter(DataRouter) {}
+
+  virtual ~ICarlaGameControllerBase() {}
 
   virtual void Initialize(UCarlaSettings &CarlaSettings) = 0;
 
@@ -28,4 +31,8 @@ public:
   virtual void BeginPlay() = 0;
 
   virtual void Tick(float DeltaSeconds) = 0;
+
+protected:
+
+  FDataRouter &DataRouter;
 };

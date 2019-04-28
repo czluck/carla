@@ -1,5 +1,5 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
@@ -7,7 +7,12 @@
 #pragma once
 
 #include "Engine/GameInstance.h"
-#include "CarlaGameControllerBase.h"
+
+#include "Carla/Game/CarlaEngine.h"
+#include "Carla/Game/CarlaGameControllerBase.h"
+#include "Carla/Game/DataRouter.h"
+#include "Carla/Server/TheNewCarlaServer.h"
+
 #include "CarlaGameInstance.generated.h"
 
 class UCarlaSettings;
@@ -29,7 +34,7 @@ public:
   void InitializeGameControllerIfNotPresent(
       const FMockGameControllerSettings &MockControllerSettings);
 
-  CarlaGameControllerBase &GetGameController()
+  ICarlaGameControllerBase &GetGameController()
   {
     check(GameController != nullptr);
     return *GameController;
@@ -54,10 +59,45 @@ public:
     return CarlaSettings;
   }
 
+  UFUNCTION(BlueprintCallable)
+  UCarlaEpisode *GetCarlaEpisode()
+  {
+    return CarlaEngine.GetCurrentEpisode();
+  }
+
+  FDataRouter &GetDataRouter()
+  {
+    return DataRouter;
+  }
+
+  void NotifyInitGame()
+  {
+    CarlaEngine.NotifyInitGame(GetCarlaSettings());
+  }
+
+  void NotifyBeginEpisode(UCarlaEpisode &Episode)
+  {
+    CarlaEngine.NotifyBeginEpisode(Episode);
+  }
+
+  void NotifyEndEpisode()
+  {
+    CarlaEngine.NotifyEndEpisode();
+  }
+
+  const FTheNewCarlaServer &GetServer() const
+  {
+    return CarlaEngine.GetServer();
+  }
+
 private:
 
   UPROPERTY(Category = "CARLA Settings", EditAnywhere)
-  UCarlaSettings *CarlaSettings;
+  UCarlaSettings *CarlaSettings = nullptr;
 
-  TUniquePtr<CarlaGameControllerBase> GameController;
+  FDataRouter DataRouter;
+
+  TUniquePtr<ICarlaGameControllerBase> GameController;
+
+  FCarlaEngine CarlaEngine;
 };

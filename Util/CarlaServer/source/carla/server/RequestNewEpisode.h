@@ -1,5 +1,5 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
@@ -17,7 +17,8 @@ namespace server {
   /// ownership of data throught the C interface we need to hold it internally.
   /// The data is hold in memory until the next call to
   /// carla_read_request_new_episode().
-  struct RequestNewEpisode {
+  class RequestNewEpisode {
+  public:
     carla_request_new_episode values;
     std::unique_ptr<const char[]> data;
   };

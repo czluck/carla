@@ -1,5 +1,5 @@
 // Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
-// de Barcelona (UAB), and the INTEL Visual Computing Lab.
+// de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
@@ -7,8 +7,9 @@
 #pragma once
 
 #include "GameFramework/PlayerState.h"
-#include "AI/TrafficLightState.h"
-#include "CapturedImage.h"
+
+#include "Traffic/TrafficLightState.h"
+
 #include "CarlaPlayerState.generated.h"
 
 /// Current state of the player, updated every frame by ACarlaVehicleController.
@@ -39,10 +40,15 @@ public:
   // ===========================================================================
   /// @{
 
-  UFUNCTION(BlueprintCallable)
-  float GetFramesPerSecond() const
+  uint64 GetFrameNumber() const
   {
-    return FramesPerSecond;
+    return FrameNumber;
+  }
+
+  UFUNCTION(BlueprintCallable)
+  float GetSimulationStepInSeconds() const
+  {
+    return SimulationStepInSeconds;
   }
 
   UFUNCTION(BlueprintCallable)
@@ -64,7 +70,7 @@ public:
   /// @{
 
   UFUNCTION(BlueprintCallable)
-  const FTransform &GetTransform() const
+  const FTransform &GetPlayerTransform() const
   {
     return Transform;
   }
@@ -79,6 +85,18 @@ public:
   FVector GetOrientation() const
   {
     return Transform.GetRotation().GetForwardVector();
+  }
+
+  UFUNCTION(BlueprintCallable)
+  FTransform GetBoundingBoxTransform() const
+  {
+    return BoundingBoxTransform;
+  }
+
+  UFUNCTION(BlueprintCallable)
+  FVector GetBoundingBoxExtent() const
+  {
+    return BoundingBoxExtent;
   }
 
   UFUNCTION(BlueprintCallable)
@@ -185,29 +203,6 @@ public:
 
   /// @}
   // ===========================================================================
-  /// @name Images
-  // ===========================================================================
-  /// @{
-
-  UFUNCTION(BlueprintCallable)
-  int32 GetNumberOfImages() const
-  {
-    return Images.Num();
-  }
-
-  UFUNCTION(BlueprintCallable)
-  bool HasImages() const
-  {
-    return GetNumberOfImages() > 0;
-  }
-
-  const TArray<FCapturedImage> &GetImages() const
-  {
-    return Images;
-  }
-
-  /// @}
-  // ===========================================================================
   // -- Modifiers --------------------------------------------------------------
   // ===========================================================================
 private:
@@ -231,7 +226,10 @@ private:
   // CopyProperties if necessary.
 
   UPROPERTY(VisibleAnywhere)
-  float FramesPerSecond;
+  uint64 FrameNumber;
+
+  UPROPERTY(VisibleAnywhere)
+  float SimulationStepInSeconds;
 
   UPROPERTY(VisibleAnywhere)
   int32 PlatformTimeStamp;
@@ -241,6 +239,12 @@ private:
 
   UPROPERTY(VisibleAnywhere)
   FTransform Transform;
+
+  UPROPERTY(VisibleAnywhere)
+  FTransform BoundingBoxTransform;
+
+  UPROPERTY(VisibleAnywhere)
+  FVector BoundingBoxExtent;
 
   UPROPERTY(VisibleAnywhere)
   float ForwardSpeed = 0.0f;
@@ -283,7 +287,4 @@ private:
 
   UPROPERTY(VisibleAnywhere)
   float OffRoadIntersectionFactor = 0.0f;
-
-  UPROPERTY(VisibleAnywhere)
-  TArray<FCapturedImage> Images;
 };
