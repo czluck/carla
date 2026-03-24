@@ -6,9 +6,9 @@
 
 #include "carla/opendrive/parser/LaneParser.h"
 
-#include "carla/opendrive/parser/pugixml/pugixml.hpp"
-
 #include "carla/road/MapBuilder.h"
+
+#include <pugixml/pugixml.hpp>
 
 namespace carla {
 namespace opendrive {
@@ -26,6 +26,7 @@ namespace parser {
       road::Lane *lane = map_builder.GetLane(road_id, lane_id, s);
 
       // Lane Width
+      int width_count = 0;
       for (pugi::xml_node lane_width_node : lane_node.children("width")) {
         const double s_offset = lane_width_node.attribute("sOffset").as_double();
         const double a = lane_width_node.attribute("a").as_double();
@@ -35,6 +36,12 @@ namespace parser {
 
         // Call Map builder create Lane Width function
         map_builder.CreateLaneWidth(lane, s_offset + s, a, b, c, d);
+        width_count++;
+      }
+      if (width_count == 0 && lane->GetId() != 0) {
+        map_builder.CreateLaneWidth(lane, s, 0.0, 0.0, 0.0, 0.0);
+        std::cout << "WARNING: In road " << lane->GetRoad()->GetId() << " lane " << lane->GetId() <<
+        " no \"<width>\" parameter found under \"<lane>\" tag. Using default values." << std::endl;
       }
 
       // Lane Border
@@ -52,40 +59,42 @@ namespace parser {
       // Lane Road Mark
       int road_mark_id = 0;
       for (pugi::xml_node lane_road_mark : lane_node.children("roadMark")) {
+        pugi::xml_node road_mark_type;
+        {
+          const double s_offset = lane_road_mark.attribute("sOffset").as_double();
+          const std::string type = lane_road_mark.attribute("type").value();
+          const std::string weight = lane_road_mark.attribute("weight").value();
+          const std::string color = lane_road_mark.attribute("color").value();
+          const std::string material = lane_road_mark.attribute("material").value();
+          const double width = lane_road_mark.attribute("width").as_double();
+          const std::string lane_change = lane_road_mark.attribute("laneChange").value();
+          const double height = lane_road_mark.attribute("height").as_double();
 
-        const double s_offset = lane_road_mark.attribute("sOffset").as_double();
-        const std::string type = lane_road_mark.attribute("type").value();
-        const std::string weight = lane_road_mark.attribute("weight").value();
-        const std::string color = lane_road_mark.attribute("color").value();
-        const std::string material = lane_road_mark.attribute("material").value();
-        const double width = lane_road_mark.attribute("width").as_double();
-        const std::string lane_change = lane_road_mark.attribute("laneChange").value();
-        const double height = lane_road_mark.attribute("height").as_double();
+          // Call map builder for LaneRoadMarkType
 
-        // Call map builder for LaneRoadMarkType
+          std::string type_name = "";
+          double type_width = 0.0;
+          road_mark_type = lane_road_mark.child("type");
+          if (road_mark_type) {
+            type_name = road_mark_type.attribute("name").value();
+            type_width = road_mark_type.attribute("width").as_double();
+          }
 
-        std::string type_name = "";
-        double type_width = 0.0;
-        pugi::xml_node road_mark_type = lane_road_mark.child("type");
-        if (road_mark_type) {
-          type_name = road_mark_type.attribute("name").value();
-          type_width = road_mark_type.attribute("width").as_double();
+          // Call map builder for LaneRoadMark
+          map_builder.CreateRoadMark(
+              lane,
+              road_mark_id,
+              s_offset + s,
+              type,
+              weight,
+              color,
+              material,
+              width,
+              lane_change,
+              height,
+              type_name,
+              type_width);
         }
-
-        // Call map builder for LaneRoadMark
-        map_builder.CreateRoadMark(
-            lane,
-            road_mark_id,
-            s_offset + s,
-            type,
-            weight,
-            color,
-            material,
-            width,
-            lane_change,
-            height,
-            type_name,
-            type_width);
 
         for (pugi::xml_node road_mark_type_line_node : road_mark_type.children("line")) {
 
@@ -183,7 +192,7 @@ namespace parser {
 
     // Lanes
     for (pugi::xml_node road_node : open_drive_node.children("road")) {
-      road::RoadId road_id = road_node.attribute("id").as_int();
+      road::RoadId road_id = road_node.attribute("id").as_uint();
 
       for (pugi::xml_node lanes_node : road_node.children("lanes")) {
 

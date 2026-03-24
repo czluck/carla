@@ -10,7 +10,15 @@
 #include "carla/Time.h"
 
 #include <boost/optional.hpp>
-#include <boost/variant.hpp>
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4583)
+#pragma warning(disable:4582)
+#include <boost/variant2/variant.hpp>
+#pragma warning(pop)
+#else
+#include <boost/variant2/variant.hpp>
+#endif
 
 #include <condition_variable>
 #include <exception>
@@ -63,7 +71,7 @@ namespace detail {
 
     struct mapped_type {
       bool should_wait;
-      boost::variant<T, SharedException> value;
+      boost::variant2::variant<SharedException, T> value;
     };
 
     std::map<const char *, mapped_type> _map;
@@ -80,7 +88,8 @@ namespace detail {
   class SharedException : public std::exception {
   public:
 
-    SharedException(const SharedException &) = default;
+    SharedException()
+      : _exception(std::make_shared<std::runtime_error>("uninitialized SharedException")) {}
 
     SharedException(std::shared_ptr<std::exception> e)
       : _exception(std::move(e)) {}
@@ -108,10 +117,10 @@ namespace detail {
     if (!_cv.wait_for(lock, timeout.to_chrono(), [&]() { return !r.should_wait; })) {
       return {};
     }
-    if (r.value.which() == 1) {
-      throw_exception(boost::get<SharedException>(r.value));
+    if (r.value.index() == 0) {
+      throw_exception(boost::variant2::get<SharedException>(r.value));
     }
-    return boost::get<T>(std::move(r.value));
+    return boost::variant2::get<T>(std::move(r.value));
   }
 
   template <typename T>

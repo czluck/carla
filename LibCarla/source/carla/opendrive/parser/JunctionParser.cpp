@@ -6,9 +6,9 @@
 
 #include "carla/opendrive/parser/JunctionParser.h"
 
-#include "carla/opendrive/parser/pugixml/pugixml.hpp"
-
 #include "carla/road/MapBuilder.h"
+
+#include <pugixml/pugixml.hpp>
 
 namespace carla {
 namespace opendrive {
@@ -34,6 +34,7 @@ namespace parser {
       road::JuncId id;
       std::string name;
       std::vector<Connection> connections;
+      std::set<road::ContId> controllers;
     };
 
     pugi::xml_node open_drive_node = xml.child("OpenDRIVE");
@@ -49,9 +50,9 @@ namespace parser {
       for (pugi::xml_node connection_node : junction_node.children("connection")) {
 
         Connection connection;
-        connection.id = connection_node.attribute("id").as_int();
-        connection.incoming_road = connection_node.attribute("incomingRoad").as_int();
-        connection.connecting_road = connection_node.attribute("connectingRoad").as_int();
+        connection.id = connection_node.attribute("id").as_uint();
+        connection.incoming_road = connection_node.attribute("incomingRoad").as_uint();
+        connection.connecting_road = connection_node.attribute("connectingRoad").as_uint();
 
         // Lane Links
         for (pugi::xml_node lane_link_node : connection_node.children("laneLink")) {
@@ -66,6 +67,14 @@ namespace parser {
         junction.connections.push_back(connection);
       }
 
+      // Controller
+      for (pugi::xml_node controller_node : junction_node.children("controller")) {
+        const road::ContId controller_id = controller_node.attribute("id").value();
+        // const std::string controller_name = controller_node.attribute("name").value();
+        // const uint32_t controller_sequence = controller_node.attribute("sequence").as_uint();
+        junction.controllers.insert(controller_id);
+      }
+
       junctions.push_back(junction);
     }
 
@@ -73,7 +82,8 @@ namespace parser {
     for (auto &junction : junctions) {
       map_builder.AddJunction(junction.id, junction.name);
       for (auto &connection : junction.connections) {
-        map_builder.AddConnection(junction.id,
+        map_builder.AddConnection(
+            junction.id,
             connection.id,
             connection.incoming_road,
             connection.connecting_road);
@@ -84,6 +94,7 @@ namespace parser {
               lane_link.to);
         }
       }
+      map_builder.AddJunctionController(junction.id, std::move(junction.controllers));
     }
   }
 } // namespace parser

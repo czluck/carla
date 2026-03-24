@@ -8,14 +8,13 @@
 
 #include "GameFramework/Actor.h"
 
-#include "Carla/Agent/TrafficSignAgentComponent.h"
-
 #include "TrafficSignBase.generated.h"
 
 class UBoxComponent;
 
 UENUM(BlueprintType)
 enum class ETrafficSignState : uint8 {
+  Null = 0, // Workarround for UE4.24 issue with enums
   UNKNOWN            = 0u   UMETA(DisplayName = "UNKNOWN"),
   TrafficLightRed    = 1u   UMETA(DisplayName = "Traffic Light - Red"),
   TrafficLightYellow = 2u   UMETA(DisplayName = "Traffic Light - Yellow"),
@@ -56,11 +55,10 @@ public:
   UFUNCTION(BlueprintImplementableEvent)
   UBoxComponent *GetTriggerVolume() const;
 
+  TArray<UBoxComponent*> GetTriggerVolumes() const;
+
 private:
 
   UPROPERTY(Category = "Traffic Sign", EditAnywhere)
   ETrafficSignState TrafficSignState = ETrafficSignState::UNKNOWN;
-
-  UPROPERTY(Category = "Traffic Sign", VisibleAnywhere)
-  UTrafficSignAgentComponent *TrafficSignAgentComponent;
 };

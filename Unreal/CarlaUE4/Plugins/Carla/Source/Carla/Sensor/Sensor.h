@@ -8,6 +8,9 @@
 
 #include "Carla/Game/CarlaEpisode.h"
 #include "Carla/Sensor/DataStream.h"
+#include "Carla/Util/RandomEngine.h"
+
+#include "Carla/Game/CarlaEngine.h"
 
 #include "GameFramework/Actor.h"
 
@@ -23,12 +26,18 @@ class CARLA_API ASensor : public AActor
 
 public:
 
+  ASensor(const FObjectInitializer &ObjectInitializer);
+
   void SetEpisode(const UCarlaEpisode &InEpisode)
   {
     Episode = &InEpisode;
   }
 
   virtual void Set(const FActorDescription &Description);
+
+  boost::optional<FActorAttribute> GetAttribute(const FString Name);
+
+  virtual void BeginPlay();
 
   /// Replace the FDataStream associated with this sensor.
   ///
@@ -38,21 +47,60 @@ public:
     Stream = std::move(InStream);
   }
 
+  FDataStream MoveDataStream()
+  {
+    return std::move(Stream);
+  }
+
   /// Return the token that allows subscribing to this sensor's stream.
   auto GetToken() const
   {
     return Stream.GetToken();
   }
 
-protected:
+  bool IsStreamReady()
+  {
+    return Stream.IsStreamReady();
+  }
 
-  void EndPlay(EEndPlayReason::Type EndPlayReason) override;
+  void Tick(const float DeltaTime) final;
+
+  virtual void PrePhysTick(float DeltaSeconds) {}
+  virtual void PostPhysTick(UWorld *World, ELevelTick TickType, float DeltaSeconds) {}
+  // Small interface to notify sensors when clients are listening
+  virtual void OnFirstClientConnected() {};
+  // Small interface to notify sensors when no clients are listening
+  virtual void OnLastClientDisconnected() {};
+
+
+  void PostPhysTickInternal(UWorld *World, ELevelTick TickType, float DeltaSeconds);
+
+  UFUNCTION(BlueprintCallable)
+  URandomEngine *GetRandomEngine()
+  {
+    return RandomEngine;
+  }
+
+  UFUNCTION(BlueprintCallable)
+  int32 GetSeed() const
+  {
+    return Seed;
+  }
+
+  UFUNCTION(BlueprintCallable)
+  void SetSeed(int32 InSeed);
 
   const UCarlaEpisode &GetEpisode() const
   {
     check(Episode != nullptr);
     return *Episode;
   }
+
+protected:
+
+  void PostActorCreated() override;
+
+  void EndPlay(EEndPlayReason::Type EndPlayReason) override;
 
   /// Return the FDataStream associated with this sensor.
   ///
@@ -64,9 +112,30 @@ protected:
     return Stream.MakeAsyncDataStream(Self, GetEpisode().GetElapsedGameTime());
   }
 
+  /// Seed of the pseudo-random engine.
+  UPROPERTY(Category = "Random Engine", EditAnywhere)
+  int32 Seed = 123456789;
+
+  /// Random Engine used to provide noise for sensor output.
+  UPROPERTY()
+  URandomEngine *RandomEngine = nullptr;
+
+  UPROPERTY()
+  bool bIsActive = false;
+
 private:
 
   FDataStream Stream;
 
+  FDelegateHandle OnPostTickDelegate;
+
+  FActorDescription SensorDescription;
+
   const UCarlaEpisode *Episode = nullptr;
+
+  /// Allows the sensor to tick with the tick rate from UE4.
+  bool ReadyToTick = false;
+
+  bool bClientsListening = false;
+
 };

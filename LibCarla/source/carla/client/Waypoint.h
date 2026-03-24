@@ -9,10 +9,11 @@
 #include "carla/Memory.h"
 #include "carla/NonCopyable.h"
 #include "carla/geom/Transform.h"
-#include "carla/road/Lane.h"
 #include "carla/road/element/LaneMarking.h"
 #include "carla/road/element/RoadInfoMarkRecord.h"
 #include "carla/road/element/Waypoint.h"
+#include "carla/road/Lane.h"
+#include "carla/road/RoadTypes.h"
 
 #include <boost/optional.hpp>
 
@@ -20,10 +21,12 @@ namespace carla {
 namespace client {
 
   class Map;
+  class Junction;
+  class Landmark;
 
   class Waypoint
     : public EnableSharedFromThis<Waypoint>,
-      private NonCopyable {
+    private NonCopyable {
   public:
 
     ~Waypoint();
@@ -56,13 +59,27 @@ namespace client {
       return _transform;
     }
 
-    bool IsIntersection() const;
+    road::JuncId GetJunctionId() const;
+
+    bool IsJunction() const;
+
+    SharedPtr<Junction> GetJunction() const;
 
     double GetLaneWidth() const;
 
     road::Lane::LaneType GetType() const;
 
     std::vector<SharedPtr<Waypoint>> GetNext(double distance) const;
+
+    std::vector<SharedPtr<Waypoint>> GetPrevious(double distance) const;
+
+    /// Returns a list of waypoints separated by distance from the current waypoint
+    /// to the end of the lane
+    std::vector<SharedPtr<Waypoint>> GetNextUntilLaneEnd(double distance) const;
+
+    /// Returns a list of waypoints separated by distance from the current waypoint
+    /// to the start of the lane
+    std::vector<SharedPtr<Waypoint>> GetPreviousUntilLaneStart(double distance) const;
 
     SharedPtr<Waypoint> GetRight() const;
 
@@ -73,6 +90,15 @@ namespace client {
     boost::optional<road::element::LaneMarking> GetLeftLaneMarking() const;
 
     road::element::LaneMarking::LaneChange GetLaneChange() const;
+
+    /// Returns a list of landmarks from the current position to a certain distance
+    std::vector<SharedPtr<Landmark>> GetAllLandmarksInDistance(
+        double distance, bool stop_at_junction = false) const;
+
+    /// Returns a list of landmarks from the current position to a certain distance
+    /// Filters by specified type
+    std::vector<SharedPtr<Landmark>> GetLandmarksOfTypeInDistance(
+        double distance, std::string filter_type, bool stop_at_junction = false) const;
 
   private:
 

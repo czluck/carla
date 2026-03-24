@@ -6,9 +6,9 @@
 
 #include "carla/opendrive/parser/ProfilesParser.h"
 
-#include "carla/opendrive/parser/pugixml/pugixml.hpp"
-
 #include "carla/road/MapBuilder.h"
+
+#include <pugixml/pugixml.hpp>
 
 namespace carla {
 namespace opendrive {
@@ -54,13 +54,14 @@ namespace parser {
 
       // parse elevation profile
       pugi::xml_node node_profile = node_road.child("elevationProfile");
+      uint64_t number_profiles = 0;
       if (node_profile) {
         // all geometry
         for (pugi::xml_node node_elevation : node_profile.children("elevation")) {
           ElevationProfile elev;
 
           // get road id
-          road::RoadId road_id = node_road.attribute("id").as_int();
+          road::RoadId road_id = node_road.attribute("id").as_uint();
           elev.road = map_builder.GetRoad(road_id);
 
           // get common properties
@@ -72,7 +73,24 @@ namespace parser {
 
           // add it
           elevation_profile.emplace_back(elev);
+          number_profiles++;
         }
+      }
+      // add a default profile if none is found
+      if(number_profiles == 0){
+        ElevationProfile elev;
+        road::RoadId road_id = node_road.attribute("id").as_uint();
+        elev.road = map_builder.GetRoad(road_id);
+
+        // get common properties
+        elev.s = 0;
+        elev.a = 0;
+        elev.b = 0;
+        elev.c = 0;
+        elev.d = 0;
+
+        // add it
+        elevation_profile.emplace_back(elev);
       }
 
       // parse lateral profile
@@ -82,7 +100,7 @@ namespace parser {
           LateralProfile lateral;
 
           // get road id
-          road::RoadId road_id = node_road.attribute("id").as_int();
+          road::RoadId road_id = node_road.attribute("id").as_uint();
           lateral.road = map_builder.GetRoad(road_id);
 
           // get common properties

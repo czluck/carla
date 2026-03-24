@@ -25,9 +25,20 @@ namespace element {
   class RoadInfoMarkRecord;
   class RoadInfoMarkTypeLine;
   class RoadInfoSpeed;
+  class RoadInfoCrosswalk;
+  class RoadInfoSignal;
 
   class RoadInfoVisitor {
   public:
+
+    RoadInfoVisitor() = default;
+    virtual ~RoadInfoVisitor() = default;
+
+    RoadInfoVisitor(const RoadInfoVisitor &) = default;
+    RoadInfoVisitor(RoadInfoVisitor &&) = default;
+
+    RoadInfoVisitor &operator=(const RoadInfoVisitor &) = default;
+    RoadInfoVisitor &operator=(RoadInfoVisitor &&) = default;
 
     virtual void Visit(RoadInfoElevation &) {}
     virtual void Visit(RoadInfoGeometry &) {}
@@ -43,6 +54,8 @@ namespace element {
     virtual void Visit(RoadInfoMarkRecord &) {}
     virtual void Visit(RoadInfoMarkTypeLine &) {}
     virtual void Visit(RoadInfoSpeed &) {}
+    virtual void Visit(RoadInfoCrosswalk &) {}
+    virtual void Visit(RoadInfoSignal &) {}
   };
 
 } // namespace element

@@ -4,10 +4,20 @@
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
 
+#include "CarlaRecorderQuery.h"
+
 #include "CarlaRecorderHelpers.h"
+
+#include "CarlaRecorder.h"
 
 #include <ctime>
 #include <sstream>
+#include <string>
+
+#include <compiler/disable-ue4-macros.h>
+#include <carla/rpc/VehicleLightState.h>
+#include <carla/rpc/VehiclePhysicsControl.h>
+#include <compiler/enable-ue4-macros.h>
 
 inline bool CarlaRecorderQuery::ReadHeader(void)
 {
@@ -72,7 +82,6 @@ std::string CarlaRecorderQuery::QueryInfo(std::string Filename, bool bShowAll)
   auto PrintFrame = [this](std::stringstream &Info)
   {
     Info << "Frame " << Frame.Id << " at " << Frame.Elapsed << " seconds\n";
-    // Info << "Frame " << Frame.Id << " at " << Frame.Elapsed << " seconds (offset 0x" << std::hex << File.tellg() << std::dec << ")\n";
   };
 
   if (!CheckFileInfo(Info))
@@ -81,7 +90,6 @@ std::string CarlaRecorderQuery::QueryInfo(std::string Filename, bool bShowAll)
   // parse only frames
   while (File)
   {
-
     // get header
     if (!ReadHeader())
     {
@@ -178,6 +186,7 @@ std::string CarlaRecorderQuery::QueryInfo(std::string Filename, bool bShowAll)
         }
         break;
 
+      // positions
       case static_cast<char>(CarlaRecorderPacketId::Position):
         if (bShowAll)
         {
@@ -191,13 +200,14 @@ std::string CarlaRecorderQuery::QueryInfo(std::string Filename, bool bShowAll)
           for (i = 0; i < Total; ++i)
           {
             Position.Read(File);
-            Info << "  Id: " << Position.DatabaseId << " Location (" << Position.Location.X << ", " << Position.Location.Y << ", " << Position.Location.Z << ") Rotation (" <<  Position.Rotation.X << ", " << Position.Rotation.Y << ", " << Position.Rotation.Z << ")" << std::endl;
+            Info << "  Id: " << Position.DatabaseId << " Location: (" << Position.Location.X << ", " << Position.Location.Y << ", " << Position.Location.Z << ") Rotation: (" <<  Position.Rotation.X << ", " << Position.Rotation.Y << ", " << Position.Rotation.Z << ")" << std::endl;
           }
         }
         else
           SkipPacket();
         break;
 
+      // traffic light
       case static_cast<char>(CarlaRecorderPacketId::State):
         if (bShowAll)
         {
@@ -233,7 +243,7 @@ std::string CarlaRecorderQuery::QueryInfo(std::string Filename, bool bShowAll)
           for (i = 0; i < Total; ++i)
           {
             Vehicle.Read(File);
-            Info << "  Vehicle id " << Vehicle.DatabaseId << ": Steering " << Vehicle.Steering << " Throttle " << Vehicle.Throttle << " Brake " << Vehicle.Brake << " Handbrake " << Vehicle.bHandbrake << " Gear " << Vehicle.Gear << std::endl;
+            Info << "  Id: " << Vehicle.DatabaseId << " Steering: " << Vehicle.Steering << " Throttle: " << Vehicle.Throttle << " Brake: " << Vehicle.Brake << " Handbrake: " << Vehicle.bHandbrake << " Gear: " << Vehicle.Gear << std::endl;
           }
         }
         else
@@ -254,21 +264,322 @@ std::string CarlaRecorderQuery::QueryInfo(std::string Filename, bool bShowAll)
           for (i = 0; i < Total; ++i)
           {
             Walker.Read(File);
-            Info << "  Walker id " << Walker.DatabaseId << ": speed " << Walker.Speed << std::endl;
+            Info << "  Id: " << Walker.DatabaseId << " speed: " << Walker.Speed << std::endl;
           }
         }
         else
           SkipPacket();
         break;
 
-      // frame end
+      // vehicle light animations
+      case static_cast<char>(CarlaRecorderPacketId::VehicleLight):
+        if (bShowAll)
+        {
+          ReadValue<uint16_t>(File, Total);
+          if (Total > 0 && !bFramePrinted)
+          {
+            PrintFrame(Info);
+            bFramePrinted = true;
+          }
+          Info << " Vehicle light animations: " << Total << std::endl;
+          for (i = 0; i < Total; ++i)
+          {
+            LightVehicle.Read(File);
+
+            carla::rpc::VehicleLightState LightState(LightVehicle.State);
+            FVehicleLightState State(LightState);
+            std::string enabled_lights_list;
+            if (State.Position)
+              enabled_lights_list += "Position ";
+            if (State.LowBeam)
+              enabled_lights_list += "LowBeam ";
+            if (State.HighBeam)
+              enabled_lights_list += "HighBeam ";
+            if (State.Brake)
+              enabled_lights_list += "Brake ";
+            if (State.RightBlinker)
+              enabled_lights_list += "RightBlinker ";
+            if (State.LeftBlinker)
+              enabled_lights_list += "LeftBlinker ";
+            if (State.Reverse)
+              enabled_lights_list += "Reverse ";
+            if (State.Interior)
+              enabled_lights_list += "Interior ";
+            if (State.Fog)
+              enabled_lights_list += "Fog ";
+            if (State.Special1)
+              enabled_lights_list += "Special1 ";
+            if (State.Special2)
+              enabled_lights_list += "Special2 ";
+
+            if (enabled_lights_list.size())
+            {
+              Info << "  Id: " << LightVehicle.DatabaseId << " " <<
+                  enabled_lights_list.substr(0, enabled_lights_list.size() - 1) << std::endl;
+            }
+            else
+            {
+              Info << "  Id: " << LightVehicle.DatabaseId << " None" << std::endl;
+            }
+          }
+        }
+        else
+          SkipPacket();
+        break;
+
+      // scene light animations
+      case static_cast<char>(CarlaRecorderPacketId::SceneLight):
+        if (bShowAll)
+        {
+          ReadValue<uint16_t>(File, Total);
+          if (Total > 0 && !bFramePrinted)
+          {
+            PrintFrame(Info);
+            bFramePrinted = true;
+          }
+          Info << " Scene light changes: " << Total << std::endl;
+          for (i = 0; i < Total; ++i)
+          {
+            LightScene.Read(File);
+            Info << "  Id: " << LightScene.LightId << " enabled: " << (LightScene.bOn ? "True" : "False")
+                << " intensity: " << LightScene.Intensity
+                << " RGB_color: (" << LightScene.Color.R << ", " << LightScene.Color.G << ", " << LightScene.Color.B << ")"
+                << std::endl;
+          }
+        }
+        else
+          SkipPacket();
+        break;
+
+      // dynamic actor kinematics
+      case static_cast<char>(CarlaRecorderPacketId::Kinematics):
+        if (bShowAll)
+        {
+          ReadValue<uint16_t>(File, Total);
+          if (Total > 0 && !bFramePrinted)
+          {
+            PrintFrame(Info);
+            bFramePrinted = true;
+          }
+          Info << " Dynamic actors: " << Total << std::endl;
+          for (i = 0; i < Total; ++i)
+          {
+            Kinematics.Read(File);
+            Info << "  Id: " << Kinematics.DatabaseId << " linear_velocity: ("
+                << Kinematics.LinearVelocity.X << ", " << Kinematics.LinearVelocity.Y << ", " << Kinematics.LinearVelocity.Z << ")"
+                << " angular_velocity: ("
+                << Kinematics.AngularVelocity.X << ", " << Kinematics.AngularVelocity.Y << ", " << Kinematics.AngularVelocity.Z << ")"
+                << std::endl;
+          }
+        }
+        else
+          SkipPacket();
+        break;
+
+      // actors bounding boxes
+      case static_cast<char>(CarlaRecorderPacketId::BoundingBox):
+        if (bShowAll)
+        {
+          ReadValue<uint16_t>(File, Total);
+          if (Total > 0 && !bFramePrinted)
+          {
+            PrintFrame(Info);
+            bFramePrinted = true;
+          }
+          Info << " Actor bounding boxes: " << Total << std::endl;
+          for (i = 0; i < Total; ++i)
+          {
+            ActorBoundingBox.Read(File);
+            Info << "  Id: " << ActorBoundingBox.DatabaseId << " origin: ("
+                << ActorBoundingBox.BoundingBox.Origin.X << ", "
+                << ActorBoundingBox.BoundingBox.Origin.Y << ", "
+                << ActorBoundingBox.BoundingBox.Origin.Z << ")"
+                << " extension: ("
+                << ActorBoundingBox.BoundingBox.Extension.X << ", "
+                << ActorBoundingBox.BoundingBox.Extension.Y << ", "
+                << ActorBoundingBox.BoundingBox.Extension.Z << ")"
+                << std::endl;
+          }
+        }
+        else
+          SkipPacket();
+        break;
+
+      // actors trigger volumes
+      case static_cast<char>(CarlaRecorderPacketId::TriggerVolume):
+        if (bShowAll)
+        {
+          ReadValue<uint16_t>(File, Total);
+          if (Total > 0 && !bFramePrinted)
+          {
+            PrintFrame(Info);
+            bFramePrinted = true;
+          }
+          Info << " Actor trigger volumes: " << Total << std::endl;
+          for (i = 0; i < Total; ++i)
+          {
+            ActorBoundingBox.Read(File);
+            Info << "  Id: " << ActorBoundingBox.DatabaseId << " origin: ("
+                << ActorBoundingBox.BoundingBox.Origin.X << ", "
+                << ActorBoundingBox.BoundingBox.Origin.Y << ", "
+                << ActorBoundingBox.BoundingBox.Origin.Z << ")"
+                << " extension: ("
+                << ActorBoundingBox.BoundingBox.Extension.X << ", "
+                << ActorBoundingBox.BoundingBox.Extension.Y << ", "
+                << ActorBoundingBox.BoundingBox.Extension.Z << ")"
+                << std::endl;
+          }
+        }
+        else
+          SkipPacket();
+        break;
+
+      // Platform time
+      case static_cast<char>(CarlaRecorderPacketId::PlatformTime):
+        if (bShowAll)
+        {
+          if (!bFramePrinted)
+          {
+            PrintFrame(Info);
+            bFramePrinted = true;
+          }
+
+          PlatformTime.Read(File);
+          Info << " Current platform time: " << PlatformTime.Time << std::endl;
+        }
+        else
+          SkipPacket();
+        break;
+
+      case static_cast<char>(CarlaRecorderPacketId::PhysicsControl):
+        if (bShowAll)
+        {
+          ReadValue<uint16_t>(File, Total);
+          if (Total > 0 && !bFramePrinted)
+          {
+            PrintFrame(Info);
+            bFramePrinted = true;
+          }
+
+          Info << " Physics Control events: " << Total << std::endl;
+          for (i = 0; i < Total; ++i)
+          {
+            PhysicsControl.Read(File);
+            carla::rpc::VehiclePhysicsControl Control(PhysicsControl.VehiclePhysicsControl);
+            Info << "  Id: " << PhysicsControl.DatabaseId << std::endl
+                << "   max_rpm = " << Control.max_rpm << std::endl
+                << "   MOI = " << Control.moi << std::endl
+                << "   damping_rate_full_throttle = " << Control.damping_rate_full_throttle << std::endl
+                << "   damping_rate_zero_throttle_clutch_engaged = " << Control.damping_rate_zero_throttle_clutch_engaged << std::endl
+                << "   damping_rate_zero_throttle_clutch_disengaged = " << Control.damping_rate_zero_throttle_clutch_disengaged << std::endl
+                << "   use_gear_auto_box = " << (Control.use_gear_autobox ? "true" : "false") << std::endl
+                << "   gear_switch_time = " << Control.gear_switch_time << std::endl
+                << "   clutch_strength = " << Control.clutch_strength << std::endl
+                << "   final_ratio = " << Control.final_ratio << std::endl
+                << "   mass = " << Control.mass << std::endl
+                << "   drag_coefficient = " << Control.drag_coefficient << std::endl
+                << "   center_of_mass = " << "(" << Control.center_of_mass.x << ", " << Control.center_of_mass.y << ", " << Control.center_of_mass.z << ")" << std::endl;
+            Info << "   torque_curve =";
+            for (auto& vec : Control.torque_curve)
+            {
+              Info << " (" << vec.x << ", " << vec.y << ")";
+            }
+            Info << std::endl;
+            Info << "   steering_curve =";
+            for (auto& vec : Control.steering_curve)
+            {
+              Info << " (" << vec.x << ", " << vec.y << ")";
+            }
+            Info << std::endl;
+            Info << "   forward_gears:" << std::endl;
+            uint32_t count = 0;
+            for (auto& Gear : Control.forward_gears)
+            {
+              Info << "    gear " << count << ": ratio " << Gear.ratio
+                  << " down_ratio " << Gear.down_ratio
+                  << " up_ratio " << Gear.up_ratio << std::endl;
+              ++count;
+            }
+            Info << "   wheels:" << std::endl;
+            count = 0;
+            for (auto& Wheel : Control.wheels)
+            {
+              Info << "    wheel " << count << ": tire_friction " << Wheel.tire_friction
+                  << " damping_rate " << Wheel.damping_rate
+                  << " max_steer_angle " << Wheel.max_steer_angle
+                  << " radius " << Wheel.radius
+                  << " max_brake_torque " << Wheel.max_brake_torque
+                  << " max_handbrake_torque " << Wheel.max_handbrake_torque
+                  << " position " << "(" << Wheel.position.x << ", " << Wheel.position.y << ", " << Wheel.position.z << ")"
+                  << std::endl;
+              ++count;
+            }
+          }
+        }
+        else
+          SkipPacket();
+        break;
+
+      case static_cast<char>(CarlaRecorderPacketId::TrafficLightTime):
+        if (bShowAll)
+        {
+          ReadValue<uint16_t>(File, Total);
+          if (Total > 0 && !bFramePrinted)
+          {
+            PrintFrame(Info);
+            bFramePrinted = true;
+          }
+
+          Info << " Traffic Light time events: " << Total << std::endl;
+          for (i = 0; i < Total; ++i)
+          {
+            TrafficLightTime.Read(File);
+            Info << "  Id: " << TrafficLightTime.DatabaseId
+                << " green_time: " << TrafficLightTime.GreenTime
+                << " yellow_time: " << TrafficLightTime.YellowTime
+                << " red_time: " << TrafficLightTime.RedTime
+                << std::endl;
+          }
+        }
+        else
+          SkipPacket();
+        break;
+
+      case static_cast<char>(CarlaRecorderPacketId::WalkerBones):
+        if (bShowAll)
+        {
+          ReadValue<uint16_t>(File, Total);
+          if (Total > 0 && !bFramePrinted)
+          {
+            PrintFrame(Info);
+            bFramePrinted = true;
+          }
+
+          Info << " Walkers Bones: " << Total << std::endl;
+          for (i = 0; i < Total; ++i)
+          {
+            WalkerBones.Clear();
+            WalkerBones.Read(File);
+            Info << "  Id: " << WalkerBones.DatabaseId << "\n";
+            for (const auto &Bone : WalkerBones.Bones)
+            {
+              Info << "     Bone: \"" << TCHAR_TO_UTF8(*Bone.Name) << "\" relative: " << "Loc("
+                   << Bone.Location.X << ", " << Bone.Location.Y << ", " << Bone.Location.Z << ") Rot(" 
+                   << Bone.Rotation.X << ", " << Bone.Rotation.Y << ", " << Bone.Rotation.Z << ")\n";
+            }
+          }
+          Info << std::endl;
+        }
+        else
+          SkipPacket();
+        break;
+
+        // frame end
       case static_cast<char>(CarlaRecorderPacketId::FrameEnd):
         // do nothing, it is empty
         break;
 
       default:
-        // skip packet
-        Info << "Unknown packet id: " << Header.Id << " at offset " << File.tellg() << std::endl;
         SkipPacket();
         break;
     }
@@ -385,9 +696,18 @@ std::string CarlaRecorderQuery::QueryCollisions(std::string Filename, char Categ
           Collision.Read(File);
 
           int Valid = 0;
+
           // get categories for both actors
-          uint8_t Type1 = Categories[Actors[Collision.DatabaseId1].Type];
-          uint8_t Type2 = Categories[Actors[Collision.DatabaseId2].Type];
+          uint8_t Type1, Type2;
+          if (Collision.DatabaseId1 != uint32_t(-1))
+            Type1 = Categories[Actors[Collision.DatabaseId1].Type];
+          else
+            Type1 = 'o'; // other non-actor object
+          
+          if (Collision.DatabaseId2 != uint32_t(-1))
+            Type2 = Categories[Actors[Collision.DatabaseId2].Type];
+          else
+            Type2 = 'o'; // other non-actor object
 
           // filter actor 1
           if (Category1 == 'a')
@@ -412,14 +732,12 @@ std::string CarlaRecorderQuery::QueryCollisions(std::string Filename, char Categ
             auto collisionPair = std::make_pair(Collision.DatabaseId1, Collision.DatabaseId2);
             if (oldCollisions.count(collisionPair) == 0)
             {
-              // Info << std::setw(5) << Collision.Id << " ";
               Info << std::setw(8) << std::setprecision(0) << std::right << std::fixed << Frame.Elapsed;
               Info << " " << "  " << Type1 << " " << Type2 << " ";
               Info << " " << std::setw(6) << std::right << Collision.DatabaseId1;
               Info << " " << std::setw(35) << std::left << TCHAR_TO_UTF8(*Actors[Collision.DatabaseId1].Id);
               Info << " " << std::setw(6) << std::right << Collision.DatabaseId2;
               Info << " " << std::setw(35) << std::left << TCHAR_TO_UTF8(*Actors[Collision.DatabaseId2].Id);
-              //Info << std::setw(8) << Frame.Id;
               Info << std::endl;
             }
             // save current collision
@@ -429,7 +747,6 @@ std::string CarlaRecorderQuery::QueryCollisions(std::string Filename, char Categ
         break;
 
       case static_cast<char>(CarlaRecorderPacketId::Position):
-        // Info << "Positions\n";
         SkipPacket();
         break;
 
@@ -443,8 +760,6 @@ std::string CarlaRecorderQuery::QueryCollisions(std::string Filename, char Categ
         break;
 
       default:
-        // skip packet
-        Info << "Unknown packet id: " << Header.Id << " at offset " << File.tellg() << std::endl;
         SkipPacket();
         break;
     }
@@ -522,7 +837,7 @@ std::string CarlaRecorderQuery::QueryBlocked(std::string Filename, double MinTim
         {
           // add
           EventAdd.Read(File);
-          Actors[EventAdd.DatabaseId] = ReplayerActorInfo { EventAdd.Type, EventAdd.Description.Id };
+          Actors[EventAdd.DatabaseId] = ReplayerActorInfo { EventAdd.Type, EventAdd.Description.Id, FVector(0, 0, 0), 0.0, 0.0 };
         }
         break;
 
@@ -546,6 +861,7 @@ std::string CarlaRecorderQuery::QueryBlocked(std::string Filename, double MinTim
         SkipPacket();
         break;
 
+      // positions
       case static_cast<char>(CarlaRecorderPacketId::Position):
         // read all positions
         ReadValue<uint16_t>(File, Total);
@@ -580,6 +896,7 @@ std::string CarlaRecorderQuery::QueryBlocked(std::string Filename, double MinTim
         }
         break;
 
+      // traffic light
       case static_cast<char>(CarlaRecorderPacketId::State):
         SkipPacket();
         break;
@@ -590,8 +907,6 @@ std::string CarlaRecorderQuery::QueryBlocked(std::string Filename, double MinTim
         break;
 
       default:
-        // skip packet
-        Info << "Unknown packet id: " << Header.Id << " at offset " << File.tellg() << std::endl;
         SkipPacket();
         break;
     }

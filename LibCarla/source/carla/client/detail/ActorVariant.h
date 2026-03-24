@@ -12,7 +12,15 @@
 #include "carla/client/detail/EpisodeProxy.h"
 #include "carla/rpc/Actor.h"
 
-#include <boost/variant.hpp>
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4583)
+#pragma warning(disable:4582)
+#include <boost/variant2/variant.hpp>
+#pragma warning(pop)
+#else
+#include <boost/variant2/variant.hpp>
+#endif
 
 namespace carla {
 namespace client {
@@ -38,16 +46,16 @@ namespace detail {
       return *this;
     }
 
-    SharedPtr<client::Actor> Get(EpisodeProxy episode, SharedPtr<const client::ActorList> actor_list = nullptr) const {
-      if (_value.which() == 0u) {
-        MakeActor(episode, actor_list);
+    SharedPtr<client::Actor> Get(EpisodeProxy episode) const {
+      if (_value.index() == 0u) {
+        MakeActor(episode);
       }
-      DEBUG_ASSERT(_value.which() == 1u);
-      return boost::get<SharedPtr<client::Actor>>(_value);
+      DEBUG_ASSERT(_value.index() == 1u);
+      return boost::variant2::get<SharedPtr<client::Actor>>(_value);
     }
 
     const rpc::Actor &Serialize() const {
-      return boost::apply_visitor(Visitor(), _value);
+      return boost::variant2::visit(Visitor(), _value);
     }
 
     ActorId GetId() const {
@@ -81,9 +89,9 @@ namespace detail {
       }
     };
 
-    void MakeActor(EpisodeProxy episode, SharedPtr<const client::ActorList> actor_list) const;
+    void MakeActor(EpisodeProxy episode) const;
 
-    mutable boost::variant<rpc::Actor, SharedPtr<client::Actor>> _value;
+    mutable boost::variant2::variant<rpc::Actor, SharedPtr<client::Actor>> _value;
   };
 
 } // namespace detail

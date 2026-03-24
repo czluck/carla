@@ -8,6 +8,8 @@
 
 #include "carla/client/Actor.h"
 #include "carla/rpc/WalkerControl.h"
+#include "carla/rpc/WalkerBoneControlIn.h"
+#include "carla/rpc/WalkerBoneControlOut.h"
 
 namespace carla {
 namespace client {
@@ -16,10 +18,10 @@ namespace client {
   public:
 
     using Control = rpc::WalkerControl;
+    using BoneControlIn = rpc::WalkerBoneControlIn;
+    using BoneControlOut = rpc::WalkerBoneControlOut;
 
     explicit Walker(ActorInitializer init) : Actor(std::move(init)) {}
-
-    using ActorState::GetBoundingBox;
 
     /// Apply @a control to this Walker.
     void ApplyControl(const Control &control);
@@ -29,6 +31,13 @@ namespace client {
     /// @note This function does not call the simulator, it returns the Control
     /// received in the last tick.
     Control GetWalkerControl() const;
+
+    BoneControlOut GetBonesTransform();
+    void SetBonesTransform(const BoneControlIn &bones);
+    void BlendPose(float blend);
+    void ShowPose() { BlendPose(1.0f); };
+    void HidePose() { BlendPose(0.0f); };
+    void GetPoseFromAnimation();
 
   private:
 

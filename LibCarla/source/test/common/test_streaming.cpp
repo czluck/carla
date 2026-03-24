@@ -17,25 +17,27 @@
 
 #include <atomic>
 
+using namespace std::chrono_literals;
+
 // This is required for low level to properly stop the threads in case of
 // exception/assert.
-class io_service_running {
+class io_context_running {
 public:
 
-  boost::asio::io_service service;
+  boost::asio::io_context service;
 
-  explicit io_service_running(size_t threads = 2u)
+  explicit io_context_running(size_t threads = 2u)
     : _work_to_do(service) {
     _threads.CreateThreads(threads, [this]() { service.run(); });
   }
 
-  ~io_service_running() {
+  ~io_context_running() {
     service.stop();
   }
 
 private:
 
-  boost::asio::io_service::work _work_to_do;
+  boost::asio::io_context::work _work_to_do;
 
   carla::ThreadGroup _threads;
 };
@@ -51,14 +53,14 @@ TEST(streaming, low_level_sending_strings) {
 
   std::atomic_size_t message_count{0u};
 
-  io_service_running io;
+  io_context_running io;
 
-  Server<tcp::Server> srv(io.service, TESTING_PORT);
+  carla::streaming::low_level::Server<tcp::Server> srv(io.service, TESTING_PORT);
   srv.SetTimeout(1s);
 
   auto stream = srv.MakeStream();
 
-  Client<tcp::Client> c;
+  carla::streaming::low_level::Client<tcp::Client> c;
   c.Subscribe(io.service, stream.token(), [&](auto message) {
     ++message_count;
     ASSERT_EQ(message.size(), message_text.size());
@@ -66,13 +68,18 @@ TEST(streaming, low_level_sending_strings) {
     ASSERT_EQ(msg, message_text);
   });
 
+  carla::Buffer Buf(boost::asio::buffer(message_text.c_str(), message_text.size()));
+  carla::SharedBufferView BufView = carla::BufferView::CreateFrom(std::move(Buf));
   for (auto i = 0u; i < number_of_messages; ++i) {
     std::this_thread::sleep_for(2ms);
-    stream << message_text;
+    carla::SharedBufferView View = BufView;
+    stream.Write(View);
   }
 
   std::this_thread::sleep_for(2ms);
   ASSERT_GE(message_count, number_of_messages - 3u);
+
+  io.service.stop();
 }
 
 TEST(streaming, low_level_unsubscribing) {
@@ -84,12 +91,12 @@ TEST(streaming, low_level_unsubscribing) {
   constexpr auto number_of_messages = 50u;
   const std::string message_text = "Hello client!";
 
-  io_service_running io;
+  io_context_running io;
 
-  Server<tcp::Server> srv(io.service, TESTING_PORT);
+  carla::streaming::low_level::Server<tcp::Server> srv(io.service, TESTING_PORT);
   srv.SetTimeout(1s);
 
-  Client<tcp::Client> c;
+  carla::streaming::low_level::Client<tcp::Client> c;
   for (auto n = 0u; n < 10u; ++n) {
     auto stream = srv.MakeStream();
     std::atomic_size_t message_count{0u};
@@ -101,9 +108,12 @@ TEST(streaming, low_level_unsubscribing) {
       ASSERT_EQ(msg, message_text);
     });
 
+    carla::Buffer Buf(boost::asio::buffer(message_text.c_str(), message_text.size()));
+    carla::SharedBufferView BufView = carla::BufferView::CreateFrom(std::move(Buf));
     for (auto i = 0u; i < number_of_messages; ++i) {
       std::this_thread::sleep_for(4ms);
-      stream << message_text;
+      carla::SharedBufferView View = BufView;
+      stream.Write(View);
     }
 
     std::this_thread::sleep_for(4ms);
@@ -111,21 +121,24 @@ TEST(streaming, low_level_unsubscribing) {
 
     for (auto i = 0u; i < number_of_messages; ++i) {
       std::this_thread::sleep_for(2ms);
-      stream << message_text;
+      carla::SharedBufferView View = BufView;
+      stream.Write(View);
     }
 
     ASSERT_GE(message_count, number_of_messages - 3u);
   }
+
+  io.service.stop();
 }
 
 TEST(streaming, low_level_tcp_small_message) {
   using namespace carla::streaming;
   using namespace carla::streaming::detail;
 
-  boost::asio::io_service io_service;
+  boost::asio::io_context io_context;
   tcp::Server::endpoint ep(boost::asio::ip::tcp::v4(), TESTING_PORT);
 
-  tcp::Server srv(io_service, ep);
+  tcp::Server srv(io_context, ep);
   srv.SetTimeout(1s);
   std::atomic_bool done{false};
   std::atomic_size_t message_count{0u};
@@ -134,16 +147,20 @@ TEST(streaming, low_level_tcp_small_message) {
 
   srv.Listen([&](std::shared_ptr<tcp::ServerSession> session) {
     ASSERT_EQ(session->get_stream_id(), 1u);
+
+    carla::Buffer Buf(boost::asio::buffer(msg.c_str(), msg.size()));
+    carla::SharedBufferView BufView = carla::BufferView::CreateFrom(std::move(Buf));
     while (!done) {
-      session->Write(carla::Buffer(msg));
       std::this_thread::sleep_for(1ns);
+      carla::SharedBufferView View = BufView;
+      session->Write(View);
     }
     std::cout << "done!\n";
   }, [](std::shared_ptr<tcp::ServerSession>) { std::cout << "session closed!\n"; });
 
   Dispatcher dispatcher{make_endpoint<tcp::Client::protocol_type>(srv.GetLocalEndpoint())};
   auto stream = dispatcher.MakeStream();
-  auto c = std::make_shared<tcp::Client>(io_service, stream.token(), [&](carla::Buffer message) {
+  auto c = std::make_shared<tcp::Client>(io_context, stream.token(), [&](carla::Buffer message) {
     ++message_count;
     ASSERT_FALSE(message.empty());
     ASSERT_EQ(message.size(), 5u);
@@ -156,10 +173,10 @@ TEST(streaming, low_level_tcp_small_message) {
   carla::ThreadGroup threads;
   threads.CreateThreads(
       std::max(2u, std::thread::hardware_concurrency()),
-      [&]() { io_service.run(); });
+      [&]() { io_context.run(); });
 
   std::this_thread::sleep_for(2s);
-  io_service.stop();
+  io_context.stop();
   done = true;
   std::cout << "client received " << message_count << " messages\n";
   ASSERT_GT(message_count, 10u);
@@ -182,11 +199,15 @@ TEST(streaming, stream_outlives_server) {
   carla::ThreadGroup sender;
   DoneGuard g = {done};
   sender.CreateThread([&]() {
+
+    carla::Buffer Buf(boost::asio::buffer(message.c_str(), message.size()));
+    carla::SharedBufferView BufView = carla::BufferView::CreateFrom(std::move(Buf));
     while (!done) {
       std::this_thread::sleep_for(1ms);
       auto s = std::atomic_load_explicit(&stream, std::memory_order_relaxed);
       if (s != nullptr) {
-        (*s) << message;
+        carla::SharedBufferView View = BufView;
+        s->Write(View);
       }
     }
   });
@@ -225,7 +246,7 @@ TEST(streaming, multi_stream) {
 
   Server srv(TESTING_PORT);
   srv.AsyncRun(number_of_clients);
-  auto stream = srv.MakeMultiStream();
+  auto stream = srv.MakeStream();
 
   for (auto i = 0u; i < iterations; ++i) {
     std::vector<std::pair<std::atomic_size_t, std::unique_ptr<Client>>> v(number_of_clients);
@@ -241,10 +262,13 @@ TEST(streaming, multi_stream) {
       });
     }
 
+    carla::Buffer Buf(boost::asio::buffer(message.c_str(), message.size()));
+    carla::SharedBufferView BufView = carla::BufferView::CreateFrom(std::move(Buf));
     std::this_thread::sleep_for(6ms);
-    for (auto i = 0u; i < number_of_messages; ++i) {
+    for (auto j = 0u; j < number_of_messages; ++j) {
       std::this_thread::sleep_for(6ms);
-      stream << message;
+      carla::SharedBufferView View = BufView;
+      stream.Write(View);
     }
     std::this_thread::sleep_for(6ms);
 

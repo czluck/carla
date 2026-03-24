@@ -10,9 +10,11 @@
 #include "carla/NonCopyable.h"
 #include "carla/RecurrentSharedFuture.h"
 #include "carla/client/Timestamp.h"
+#include "carla/client/WorldSnapshot.h"
 #include "carla/client/detail/CachedActorList.h"
 #include "carla/client/detail/CallbackList.h"
 #include "carla/client/detail/EpisodeState.h"
+#include "carla/client/detail/EpisodeProxy.h"
 #include "carla/rpc/EpisodeInfo.h"
 
 #include <vector>
@@ -22,6 +24,7 @@ namespace client {
 namespace detail {
 
   class Client;
+  class WalkerNavigation;
 
   /// Holds the current episode, and the current episode state.
   ///
@@ -33,7 +36,7 @@ namespace detail {
       private NonCopyable {
   public:
 
-    explicit Episode(Client &client);
+    explicit Episode(Client &client, std::weak_ptr<Simulator> simulator);
 
     ~Episode();
 
@@ -51,35 +54,86 @@ namespace detail {
       _actors.Insert(std::move(actor));
     }
 
+    boost::optional<rpc::Actor> GetActorById(ActorId id);
+
     std::vector<rpc::Actor> GetActorsById(const std::vector<ActorId> &actor_ids);
 
     std::vector<rpc::Actor> GetActors();
 
-    boost::optional<Timestamp> WaitForState(time_duration timeout) {
-      return _timestamp.WaitFor(timeout);
+    boost::optional<WorldSnapshot> WaitForState(time_duration timeout) {
+      return _snapshot.WaitFor(timeout);
     }
 
-    void RegisterOnTickEvent(std::function<void(Timestamp)> callback) {
-      _on_tick_callbacks.RegisterCallback(std::move(callback));
+    size_t RegisterOnTickEvent(std::function<void(WorldSnapshot)> callback) {
+      return _on_tick_callbacks.Push(std::move(callback));
     }
+
+    void RemoveOnTickEvent(size_t id) {
+      _on_tick_callbacks.Remove(id);
+    }
+
+    size_t RegisterOnMapChangeEvent(std::function<void(WorldSnapshot)> callback) {
+      return _on_map_change_callbacks.Push(std::move(callback));
+    }
+
+    void RemoveOnMapChangeEvent(size_t id) {
+      _on_map_change_callbacks.Remove(id);
+    }
+
+    size_t RegisterLightUpdateChangeEvent(std::function<void(WorldSnapshot)> callback) {
+      return _on_light_update_callbacks.Push(std::move(callback));
+    }
+
+    void RemoveLightUpdateChangeEvent(size_t id) {
+      _on_light_update_callbacks.Remove(id);
+    }
+
+    void SetPedestriansCrossFactor(float percentage);
+
+    void SetPedestriansSeed(unsigned int seed);
+
+    void AddPendingException(std::string e) {
+      _pending_exceptions = true;
+      _pending_exceptions_msg = e;
+    }
+
+    bool HasMapChangedSinceLastCall();
+
+    std::shared_ptr<WalkerNavigation> CreateNavigationIfMissing();
 
   private:
 
-    Episode(Client &client, const rpc::EpisodeInfo &info);
+    Episode(Client &client, const rpc::EpisodeInfo &info, std::weak_ptr<Simulator> simulator);
 
     void OnEpisodeStarted();
+
+    void OnEpisodeChanged();
 
     Client &_client;
 
     AtomicSharedPtr<const EpisodeState> _state;
 
+    std::string _pending_exceptions_msg;
+
     CachedActorList _actors;
 
-    CallbackList<Timestamp> _on_tick_callbacks;
+    CallbackList<WorldSnapshot> _on_tick_callbacks;
 
-    RecurrentSharedFuture<Timestamp> _timestamp;
+    CallbackList<WorldSnapshot> _on_map_change_callbacks;
+
+    CallbackList<WorldSnapshot> _on_light_update_callbacks;
+
+    RecurrentSharedFuture<WorldSnapshot> _snapshot;
+
+    AtomicSharedPtr<WalkerNavigation> _walker_navigation;
 
     const streaming::Token _token;
+
+    bool _pending_exceptions = false;
+
+    bool _should_update_map = true;
+
+    std::weak_ptr<Simulator> _simulator;
   };
 
 } // namespace detail

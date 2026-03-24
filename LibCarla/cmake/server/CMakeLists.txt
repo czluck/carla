@@ -26,9 +26,6 @@ install(FILES ${libcarla_carla_opendrive} DESTINATION include/carla/opendrive)
 file(GLOB libcarla_carla_opendrive_parser "${libcarla_source_path}/carla/opendrive/parser/*.h")
 install(FILES ${libcarla_carla_opendrive_parser} DESTINATION include/carla/opendrive/parser)
 
-file(GLOB libcarla_carla_opendrive_parser_pugixml "${libcarla_source_path}/carla/opendrive/parser/pugixml/*.hpp")
-install(FILES ${libcarla_carla_opendrive_parser_pugixml} DESTINATION include/carla/opendrive/parser/pugixml)
-
 file(GLOB libcarla_carla_profiler_headers "${libcarla_source_path}/carla/profiler/*.h")
 install(FILES ${libcarla_carla_profiler_headers} DESTINATION include/carla/profiler)
 
@@ -37,9 +34,6 @@ install(FILES ${libcarla_carla_road_headers} DESTINATION include/carla/road)
 
 file(GLOB libcarla_carla_road_element_headers "${libcarla_source_path}/carla/road/element/*.h")
 install(FILES ${libcarla_carla_road_element_headers} DESTINATION include/carla/road/element)
-
-file(GLOB libcarla_carla_road_element_cephes_headers "${libcarla_source_path}/carla/road/element/cephes/*.h")
-install(FILES ${libcarla_carla_road_element_cephes_headers} DESTINATION include/carla/road/element/cephes)
 
 file(GLOB libcarla_carla_road_general_headers "${libcarla_source_path}/carla/road/general/*.h")
 install(FILES ${libcarla_carla_road_general_headers} DESTINATION include/carla/road/general)
@@ -74,6 +68,12 @@ install(FILES ${libcarla_carla_streaming_detail_tcp_headers} DESTINATION include
 file(GLOB libcarla_carla_streaming_low_level_headers "${libcarla_source_path}/carla/streaming/low_level/*.h")
 install(FILES ${libcarla_carla_streaming_low_level_headers} DESTINATION include/carla/streaming/low_level)
 
+file(GLOB libcarla_carla_multigpu_headers "${libcarla_source_path}/carla/multigpu/*.h")
+install(FILES ${libcarla_carla_multigpu_headers} DESTINATION include/carla/multigpu)
+
+file(GLOB libcarla_carla_ros2_headers "${libcarla_source_path}/carla/ros2/*.h")
+install(FILES ${libcarla_carla_ros2_headers} DESTINATION include/carla/ros2)
+
 install(DIRECTORY "${BOOST_INCLUDE_PATH}/boost" DESTINATION include)
 
 if(WIN32)
@@ -96,14 +96,10 @@ file(GLOB libcarla_server_sources
     "${libcarla_source_path}/carla/opendrive/*.h"
     "${libcarla_source_path}/carla/opendrive/parser/*.cpp"
     "${libcarla_source_path}/carla/opendrive/parser/*.h"
-    "${libcarla_source_path}/carla/opendrive/parser/pugixml/*.cpp"
-    "${libcarla_source_path}/carla/opendrive/parser/pugixml/*.hpp"
     "${libcarla_source_path}/carla/road/*.cpp"
     "${libcarla_source_path}/carla/road/*.h"
     "${libcarla_source_path}/carla/road/element/*.cpp"
     "${libcarla_source_path}/carla/road/element/*.h"
-    "${libcarla_source_path}/carla/road/element/cephes/*.cpp"
-    "${libcarla_source_path}/carla/road/element/cephes/*.h"
     "${libcarla_source_path}/carla/road/general/*.cpp"
     "${libcarla_source_path}/carla/road/general/*.h"
     "${libcarla_source_path}/carla/road/object/*.cpp"
@@ -119,8 +115,17 @@ file(GLOB libcarla_server_sources
     "${libcarla_source_path}/carla/streaming/detail/*.cpp"
     "${libcarla_source_path}/carla/streaming/detail/*.h"
     "${libcarla_source_path}/carla/streaming/detail/tcp/*.cpp"
-    "${libcarla_source_path}/carla/streaming/detail/tcp/*.h"
-    "${libcarla_source_path}/carla/streaming/low_level/*.h")
+    "${libcarla_source_path}/carla/streaming/low_level/*.h"
+    "${libcarla_source_path}/carla/multigpu/*.h"
+    "${libcarla_source_path}/carla/multigpu/*.cpp"
+    "${libcarla_source_path}/carla/ros2/*.h"
+    "${libcarla_source_path}/carla/ros2/*.cpp"
+    "${libcarla_source_thirdparty_path}/odrSpiral/*.cpp"
+    "${libcarla_source_thirdparty_path}/odrSpiral/*.h"
+    "${libcarla_source_thirdparty_path}/moodycamel/*.cpp"
+    "${libcarla_source_thirdparty_path}/moodycamel/*.h"
+    "${libcarla_source_thirdparty_path}/pugixml/*.cpp"
+    "${libcarla_source_thirdparty_path}/pugixml/*.hpp")
 
 # ==============================================================================
 # Create targets for debug and release in the same build type.
@@ -130,13 +135,13 @@ if (LIBCARLA_BUILD_RELEASE)
 
   add_library(carla_server STATIC ${libcarla_server_sources})
 
-  target_include_directories(carla_server PRIVATE
+  target_include_directories(carla_server SYSTEM PRIVATE
       "${BOOST_INCLUDE_PATH}"
       "${RPCLIB_INCLUDE_PATH}")
 
   install(TARGETS carla_server DESTINATION lib OPTIONAL)
 
-  set_target_properties(carla_server PROPERTIES COMPILE_FLAGS ${CMAKE_CXX_FLAGS_RELEASE})
+  set_target_properties(carla_server PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS_RELEASE}")
 
 endif()
 
@@ -144,13 +149,13 @@ if (LIBCARLA_BUILD_DEBUG)
 
   add_library(carla_server_debug STATIC ${libcarla_server_sources})
 
-  target_include_directories(carla_server_debug PRIVATE
+  target_include_directories(carla_server_debug SYSTEM PRIVATE
       "${BOOST_INCLUDE_PATH}"
       "${RPCLIB_INCLUDE_PATH}")
 
   install(TARGETS carla_server_debug DESTINATION lib OPTIONAL)
 
-  set_target_properties(carla_server_debug PROPERTIES COMPILE_FLAGS ${CMAKE_CXX_FLAGS_DEBUG})
+  set_target_properties(carla_server_debug PROPERTIES COMPILE_FLAGS "${CMAKE_CXX_FLAGS_DEBUG}")
   target_compile_definitions(carla_server_debug PUBLIC -DBOOST_ASIO_ENABLE_BUFFER_DEBUGGING)
 
 endif()

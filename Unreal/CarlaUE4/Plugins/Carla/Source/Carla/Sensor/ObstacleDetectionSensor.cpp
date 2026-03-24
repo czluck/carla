@@ -11,19 +11,16 @@
 #include "Carla/Actor/ActorRegistry.h"
 #include "Carla/Game/CarlaEpisode.h"
 #include "Carla/Game/CarlaGameInstance.h"
-#include "Carla/Game/TheNewCarlaGameModeBase.h"
+#include "Carla/Game/CarlaGameModeBase.h"
+
+#include <compiler/disable-ue4-macros.h>
+#include "carla/ros2/ROS2.h"
+#include <compiler/enable-ue4-macros.h>
 
 AObstacleDetectionSensor::AObstacleDetectionSensor(const FObjectInitializer &ObjectInitializer)
   : Super(ObjectInitializer)
 {
   PrimaryActorTick.bCanEverTick = true;
-
-  auto MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RootComponent"));
-  MeshComp->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-  MeshComp->bHiddenInGame = true;
-  MeshComp->CastShadow = false;
-  MeshComp->PostPhysicsComponentTick.bCanEverTick = false;
-  RootComponent = MeshComp;
 }
 
 FActorDefinition AObstacleDetectionSensor::GetSensorDefinition()
@@ -49,17 +46,17 @@ void AObstacleDetectionSensor::Set(const FActorDescription &Description)
       "only_dynamics",
       Description.Variations,
       bOnlyDynamics);
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
   bDebugLineTrace = UActorBlueprintFunctionLibrary::RetrieveActorAttributeToBool(
       "debug_linetrace",
       Description.Variations,
       bDebugLineTrace);
-
+#endif
 }
 
-void AObstacleDetectionSensor::Tick(float DeltaSeconds)
+void AObstacleDetectionSensor::PostPhysTick(UWorld *World, ELevelTick TickType, float DeltaTime)
 {
-  Super::Tick(DeltaSeconds);
-
+  TRACE_CPUPROFILER_EVENT_SCOPE(AObstacleDetectionSensor::PostPhysTick);
   const FVector &Start = GetActorLocation();
   const FVector &End = Start + (GetActorForwardVector() * Distance);
   UWorld* CurrentWorld = GetWorld();
@@ -70,6 +67,7 @@ void AObstacleDetectionSensor::Tick(float DeltaSeconds)
   // Initialization of Query Parameters
   FCollisionQueryParams TraceParams(FName(TEXT("ObstacleDetection Trace")), true, this);
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
   // If debug mode enabled, we create a tag that will make the sweep be
   // displayed.
   if (bDebugLineTrace)
@@ -78,6 +76,7 @@ void AObstacleDetectionSensor::Tick(float DeltaSeconds)
     CurrentWorld->DebugDrawTraceTag = TraceTag;
     TraceParams.TraceTag = TraceTag;
   }
+#endif
 
   // Hit against complex meshes
   TraceParams.bTraceComplex = true;
@@ -137,12 +136,35 @@ void AObstacleDetectionSensor::OnObstacleDetectionEvent(
     float HitDistance,
     const FHitResult &Hit)
 {
-  if ((Actor != nullptr) && (OtherActor != nullptr))
+  if ((Actor != nullptr) && (OtherActor != nullptr) && IsStreamReady())
   {
     const auto &Episode = GetEpisode();
-    GetDataStream(*this).Send(*this,
-        Episode.SerializeActor(Episode.FindOrFakeActor(Actor)),
-        Episode.SerializeActor(Episode.FindOrFakeActor(OtherActor)),
-        HitRadius);
+
+    auto DataStream = GetDataStream(*this);
+
+    // ROS2
+    #if defined(WITH_ROS2)
+    auto ROS2 = carla::ros2::ROS2::GetInstance();
+    if (ROS2->IsEnabled())
+    {
+      TRACE_CPUPROFILER_EVENT_SCOPE_STR("ROS2 Send");
+      auto StreamId = carla::streaming::detail::token_type(GetToken()).get_stream_id();
+      AActor* ParentActor = GetAttachParentActor();
+      if (ParentActor)
+      {
+        FTransform LocalTransformRelativeToParent = GetActorTransform().GetRelativeTransform(ParentActor->GetActorTransform());
+        ROS2->ProcessDataFromObstacleDetection(DataStream.GetSensorType(), StreamId, LocalTransformRelativeToParent, Actor, OtherActor, HitDistance/100.0f, this);
+      }
+      else
+      {
+        ROS2->ProcessDataFromObstacleDetection(DataStream.GetSensorType(), StreamId, DataStream.GetSensorTransform(), Actor, OtherActor, HitDistance/100.0f, this);
+      }
+    }
+    #endif
+
+    DataStream.SerializeAndSend(*this,
+        Episode.SerializeActor(Actor),
+        Episode.SerializeActor(OtherActor),
+        HitDistance/100.0f);
   }
 }

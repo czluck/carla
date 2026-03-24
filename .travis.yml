@@ -13,9 +13,10 @@ matrix:
         apt:
           sources:
             - ubuntu-toolchain-r-test
+            - llvm-toolchain-xenial-8
           packages:
             - g++-7 # we need this one for the libstdc++.
-            - clang-6.0
+            - clang-8
             - ninja-build
             - python
             - python-pip
@@ -27,8 +28,10 @@ matrix:
       install:
         - pip2 install -q --user setuptools
         - pip2 install -q --user -r PythonAPI/test/requirements.txt
+        - pip2 install -q --user -r PythonAPI/carla/requirements.txt
         - pip3 install -q --user setuptools
         - pip3 install -q --user -r PythonAPI/test/requirements.txt
+        - pip3 install -q --user -r PythonAPI/carla/requirements.txt
       script:
         - while sleep 2m; do echo "still building..."; done &
         - make setup >> build.log 2>&1
@@ -54,7 +57,7 @@ matrix:
         - pip2 install -q --user -r PythonAPI/util/requirements.txt
       script:
         - shopt -s globstar
-        - pylint --disable=R,C --rcfile=PythonAPI/.pylintrc PythonAPI/**/*.py
+        - pylint --disable=R,C --rcfile=PythonAPI/.pylintrc PythonAPI/**/*.py Util/BuildTools/*.py
 
     - env: TEST="Pylint 3"
       addons:
@@ -64,19 +67,23 @@ matrix:
             - python3-pip
       install:
         - pip3 install -q --user setuptools
-        - pip3 install -q pylint
+        - pip3 install -q astroid==2.2.5 pylint==2.3.1
         - pip3 install -q --user -r PythonAPI/carla/requirements.txt
         - pip3 install -q --user -r PythonAPI/examples/requirements.txt
         - pip3 install -q --user -r PythonAPI/test/requirements.txt
         - pip3 install -q --user -r PythonAPI/util/requirements.txt
+        - pip3 install -q --user -r Util/Docker/requirements.txt
       script:
         - shopt -s globstar
-        - pylint --disable=R,C --rcfile=PythonAPI/.pylintrc PythonAPI/**/*.py
+        - pylint --disable=R,C --rcfile=PythonAPI/.pylintrc PythonAPI/**/*.py Util/Docker/*.py Util/BuildTools/*.py
 
     - env: TEST="MkDocs"
       install:
+        - pip install -q --user -r PythonAPI/docs/requirements.txt
         - pip install -q --user mkdocs
       script:
+        - make PythonAPI.docs
+        - git diff --quiet HEAD --; if [ ! $? -eq 0 ]; then echo "Python API reference changed, forgot to run \"make PythonAPI.docs\"?"; exit 1; fi
         - mkdocs build --verbose --clean --strict --site-dir _site
 
 notifications:

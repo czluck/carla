@@ -4,8 +4,8 @@ BINDIR=$(CURDIR)/bin
 INSTALLDIR=$(CURDIR)/libcarla-install
 TOOLCHAIN=$(CURDIR)/ToolChain.cmake
 
-CC=/usr/bin/clang-6.0
-CXX=/usr/bin/clang++-6.0
+CC=/usr/bin/gcc-7
+CXX=/usr/bin/g++-7
 CXXFLAGS=-std=c++14 -pthread -fPIC -O3 -DNDEBUG -Werror -Wall -Wextra
 
 define log
@@ -22,15 +22,19 @@ run: build
 	$(call log,Running C++ Client...)
 	@$(BINDIR)/cpp_client $(ARGS)
 
+run.only:
+	$(call log,Running C++ Client...)
+	@$(BINDIR)/cpp_client $(ARGS)
+
 build: $(BINDIR)/cpp_client
 
-$(BINDIR)/cpp_client: build_libcarla
+$(BINDIR)/cpp_client: | build_libcarla
 	$(call log,Compiling C++ Client...)
 	@mkdir -p $(BINDIR)
-	@$(CXX) $(CXXFLAGS) -I$(INSTALLDIR)/include -L$(INSTALLDIR)/lib \
+	@$(CXX) $(CXXFLAGS) -I$(INSTALLDIR)/include -isystem $(INSTALLDIR)/include/system -L$(INSTALLDIR)/lib \
 		-o $(BINDIR)/cpp_client main.cpp \
 		-Wl,-Bstatic -lcarla_client -lrpc -lboost_filesystem -Wl,-Bdynamic \
-		-lpng -ltiff -ljpeg
+		-lpng -ltiff -ljpeg -lRecast -lDetour -lDetourCrowd
 
 build_libcarla: $(TOOLCHAIN)
 	@cd $(CARLADIR); make setup

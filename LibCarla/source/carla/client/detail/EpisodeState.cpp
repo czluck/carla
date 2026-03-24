@@ -13,16 +13,20 @@ namespace detail {
   EpisodeState::EpisodeState(const sensor::data::RawEpisodeState &state)
     : _episode_id(state.GetEpisodeId()),
       _timestamp(
-          state.GetFrameNumber(),
+          state.GetFrame(),
           state.GetGameTimeStamp(),
           state.GetDeltaSeconds(),
-          state.GetPlatformTimeStamp()) {
+          state.GetPlatformTimeStamp()),
+      _map_origin(state.GetMapOrigin()),
+      _simulation_state(state.GetSimulationState()) {
     _actors.reserve(state.size());
     for (auto &&actor : state) {
       DEBUG_ONLY(auto result = )
       _actors.emplace(
           actor.id,
-          ActorState{
+          ActorSnapshot{
+              actor.id,
+              actor.actor_state,
               actor.transform,
               actor.velocity,
               actor.angular_velocity,

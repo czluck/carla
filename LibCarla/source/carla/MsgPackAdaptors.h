@@ -10,7 +10,16 @@
 #include "carla/MsgPack.h"
 
 #include <boost/optional.hpp>
-#include <boost/variant.hpp>
+
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4583)
+#pragma warning(disable:4582)
+#include <boost/variant2/variant.hpp>
+#pragma warning(pop)
+#else
+#include <boost/variant2/variant.hpp>
+#endif
 
 #include <tuple>
 
@@ -83,43 +92,43 @@ namespace adaptor {
   };
 
   // ===========================================================================
-  // -- Adaptors for boost::variant --------------------------------------------
+  // -- Adaptors for boost::variant2::variant ----------------------------------
   // ===========================================================================
 
   template<typename... Ts>
-  struct convert<boost::variant<Ts...>> {
+  struct convert<boost::variant2::variant<Ts...>> {
 
     const clmdep_msgpack::object &operator()(
         const clmdep_msgpack::object &o,
-        boost::variant<Ts...> &v) const {
+        boost::variant2::variant<Ts...> &v) const {
       if (o.type != clmdep_msgpack::type::ARRAY) {
         ::carla::throw_exception(clmdep_msgpack::type_error());
       }
       if (o.via.array.size != 2) {
         ::carla::throw_exception(clmdep_msgpack::type_error());
       }
-      const auto index = o.via.array.ptr[0].as<int>();
+      const auto index = o.via.array.ptr[0].as<uint64_t>();
       copy_to_variant(index, o, v, std::make_index_sequence<sizeof...(Ts)>());
       return o;
     }
 
   private:
 
-    template <size_t I>
+    template <uint64_t I>
     static void copy_to_variant_impl(
         const clmdep_msgpack::object &o,
-        boost::variant<Ts...> &v) {
+        boost::variant2::variant<Ts...> &v) {
       /// @todo Workaround for finding the type.
       auto dummy = std::get<I>(std::tuple<Ts...>{});
       using T = decltype(dummy);
       v = o.via.array.ptr[1].as<T>();
     }
 
-    template <size_t... Is>
+    template <uint64_t... Is>
     static void copy_to_variant(
-        const size_t index,
+        const uint64_t index,
         const clmdep_msgpack::object &o,
-        boost::variant<Ts...> &v,
+        boost::variant2::variant<Ts...> &v,
         std::index_sequence<Is...>) {
       std::initializer_list<int> ({
         (index == Is ? copy_to_variant_impl<Is>(o, v), 0 : 0)...
@@ -128,30 +137,30 @@ namespace adaptor {
   };
 
   template<typename... Ts>
-  struct pack<boost::variant<Ts...>> {
+  struct pack<boost::variant2::variant<Ts...>> {
     template <typename Stream>
     packer<Stream> &operator()(
         clmdep_msgpack::packer<Stream> &o,
-        const boost::variant<Ts...> &v) const {
+        const boost::variant2::variant<Ts...> &v) const {
       o.pack_array(2);
-      o.pack(static_cast<int>(v.which()));
-      boost::apply_visitor([&](const auto &value) { o.pack(value); }, v);
+      o.pack(static_cast<uint64_t>(v.index()));
+      boost::variant2::visit([&](const auto &value) { o.pack(value); }, v);
       return o;
     }
   };
 
   template<typename... Ts>
-  struct object_with_zone<boost::variant<Ts...>> {
+  struct object_with_zone<boost::variant2::variant<Ts...>> {
     void operator()(
         clmdep_msgpack::object::with_zone &o,
-        const boost::variant<Ts...> &v) const {
+        const boost::variant2::variant<Ts...> &v) const {
       o.type = type::ARRAY;
       o.via.array.size = 2;
       o.via.array.ptr = static_cast<clmdep_msgpack::object*>(o.zone.allocate_align(
           sizeof(clmdep_msgpack::object) * o.via.array.size,
           MSGPACK_ZONE_ALIGNOF(clmdep_msgpack::object)));
-      o.via.array.ptr[0] = clmdep_msgpack::object(static_cast<int>(v.which()), o.zone);
-      boost::apply_visitor([&](const auto &value) {
+      o.via.array.ptr[0] = clmdep_msgpack::object(static_cast<uint64_t>(v.index()), o.zone);
+      boost::variant2::visit([&](const auto &value) {
         o.via.array.ptr[1] = clmdep_msgpack::object(value, o.zone);
       }, v);
     }

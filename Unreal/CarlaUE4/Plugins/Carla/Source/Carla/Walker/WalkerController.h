@@ -6,10 +6,16 @@
 
 #pragma once
 
+#include "Carla/Walker/WalkerBoneControlIn.h"
+#include "Carla/Walker/WalkerBoneControlOut.h"
 #include "Carla/Walker/WalkerControl.h"
 
 #include "CoreMinimal.h"
 #include "GameFramework/Controller.h"
+
+#include <compiler/disable-ue4-macros.h>
+#include <carla/rpc/WalkerBoneControlIn.h>
+#include <compiler/enable-ue4-macros.h>
 
 #include "WalkerController.generated.h"
 
@@ -20,9 +26,9 @@ class CARLA_API AWalkerController : public AController
 
 public:
 
-  AWalkerController(const FObjectInitializer& ObjectInitializer);
+  AWalkerController(const FObjectInitializer &ObjectInitializer);
 
-  void Possess(APawn *InPawn) override;
+  void OnPossess(APawn *InPawn) override;
 
   void Tick(float DeltaSeconds) override;
 
@@ -34,19 +40,27 @@ public:
   }
 
   UFUNCTION(BlueprintCallable)
-  void ApplyWalkerControl(const FWalkerControl &InControl)
-  {
-    Control = InControl;
-  }
+  void ApplyWalkerControl(const FWalkerControl &InControl);
 
   UFUNCTION(BlueprintCallable)
-  const FWalkerControl &GetWalkerControl() const
+  const FWalkerControl GetWalkerControl() const
   {
     return Control;
   }
 
+  UFUNCTION(BlueprintCallable)
+  void GetBonesTransform(FWalkerBoneControlOut &WalkerBones);
+
+  UFUNCTION(BlueprintCallable)
+  void SetBonesTransform(const FWalkerBoneControlIn &WalkerBones);
+
+  UFUNCTION(BlueprintCallable)
+  void BlendPose(float Blend);
+
+  UFUNCTION(BlueprintCallable)
+  void GetPoseFromAnimation();
+
 private:
 
-  UPROPERTY(VisibleAnywhere)
   FWalkerControl Control;
 };
